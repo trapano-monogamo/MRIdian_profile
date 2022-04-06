@@ -1,86 +1,125 @@
-# --- DataScan ---
+# TODO: remove \t from Profile->raw_data, and avoid those horrible "\t\tSOMETHING"...
+
+import os
+
+
+# --- Scan ---
 # stores scan data and parameters in a dictionary.
 
-class DataScan:
-   task_name: str
+class Scan:
    scan_num: int
-   data: dict
-   begin: int
-   end: int
+   fields: dict
+   data: list
+   scan_num: int
 
-   def __init__(self, _scan_num, _file, _begin, _end):
+   def __init__(self, _scan_num, _raw_data, _begin, _end):
       self.scan_num = _scan_num
-      self.begin = _begin
-      self.end = _end
+      self.fields = {}
+      self.data = []
 
-      # handmade parsing rules
+      # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
+      # once it is encountered, collect floats
+      i = _begin + 1
+      while i != _end:
+         # if it's a field, separate field name and value (they're separated with an equal sign), and put them in the fields dict
+         if _raw_data[i].find("BEGIN_DATA") == -1:
+            tokens = _raw_data[i].replace("\t", "").split("=")
+            self.fields[tokens[0]] = tokens[1]
+         # otherwise collect the numbers in the current line as pairs and put them in the data list
+         else:
+            j = i + 1
+            while j != _end - 1:
+               # removing empty strings (once separators) from list and cast the rest to floats
+               nums = [e for e in _raw_data[j].split("\t") if e]
+               # print(nums)
+               self.data.append([float(nums[0]), float(nums[1])])
+               j += 1
+            # stop parsing
+            break
+         i += 1
 
    def log(self):
-      print(f"n: {self.scan_num} , begin: {self.begin} , end: {self.end}")
+      print("\n------------------------------------------")
+      print(f"n: {self.scan_num}")
+      print(self.fields)
+      print(self.data)
+      print("------------------------------------------")
 
 
 
-# --- DataProfile ---
+
+# --- Profile ---
 # reads a file and extracts scan data present in that file
 # by parsing scan by scan each field and collecting numerical data,
 # organised in DataScans instances.
 
-class DataProfile:
-   raw_data: list
+class Profile:
+   name: str
    scans: list
 
    def __init__(self, file_path: str):
       self.scans = []
-      self.raw_data = []
+      self.name = file_path.split("/")[-1].replace(".mcc", "")
+      raw_data = []
 
       # read file
       with open(file_path, "r") as f:
-         self.raw_data = f.read().split("\n")
+         raw_data = f.read().split("\n")
          
-      # handmade parsing rules
+      # parsing
       i = 0
       end_region_index = 0
-      while i < len(self.raw_data):
+      while i < len(raw_data):
          # when a BEGIN_SCAN is found, highlight its region up to END_SCAN, and build a DataScan out of it
-         if "\tBEGIN_SCAN" in self.raw_data[i].split(' '):
-            scan_num = int(self.raw_data[i].split(" ")[-1])
+         if "\tBEGIN_SCAN" in raw_data[i].split(' '):
+            scan_num = int(raw_data[i].split(" ")[-1])
 
             # OMG!!! what are we, babies?! c'mon...
             if scan_num < 10:
-               end_region_index = self.raw_data.index(f"\tEND_SCAN  {scan_num}")
+               end_region_index = raw_data.index(f"\tEND_SCAN  {scan_num}")
             else:
-               end_region_index = self.raw_data.index(f"\tEND_SCAN {scan_num}")
+               end_region_index = raw_data.index(f"\tEND_SCAN {scan_num}")
 
-            self.scans.append(DataScan(scan_num, file_path, i, end_region_index))
+            self.scans.append(Scan(scan_num, raw_data, i, end_region_index))
 
             # skip content in between
             i = end_region_index
          i += 1
 
-      for s in self.scans:
-         s.log()
+   def log(self):
+      print("\n\nO=======================================================O")
+      print(self.name)
+      for e in self.scans:
+         e.log()
+      print("O=======================================================O\n\n")
 
-      # storing data
 
 
+# --- Cacher ---
+# stores all Profiles present in a folder
 
-# --- DataCacher ---
-# stores all DataProfiles present in a folder
-
-class DataCacher:
+class Cacher:
    profiles: list
 
-   def __init__(self):
-      pass
+   def __init__(self, _res_dir):
+      self.profiles = []
+      filelist = []
+      for root, dirs, files in os.walk(_res_dir):
+         for _file in files:
+            current_file_path = os.path.join(root,_file).replace("\\", "/")
+            filelist.append(current_file_path)
+      for f in filelist:
+         self.profiles.append(Profile(f))
 
-
-
+   def log(self):
+      for e in self.profiles:
+         e.log()
 
 
 
 def main():
-   d = DataProfile("./res/X06 FFF OPEN 15X15 X Average_Symmetrised.mcc")
-   d = DataProfile("./res/X06 FFF OPEN 15X15 X OLBIA_Symmetrised.mcc")
+   c = Cacher("./res/")
+   c.log()
 
 if __name__ == '__main__':
    main()
