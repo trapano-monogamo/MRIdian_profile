@@ -1,6 +1,8 @@
 1. [x] create plot PNGs
 2. [ ] rename profile/scan terminology
-3. [ ] check inflection points are stored correctly
+3. [x] check inflection points are stored correctly
 4. [ ] check all graphs
 	a. isolate peaks in AVARAGE_SYMMETRISED and take the two middle ones, they will be min and max for sure.
 5. [ ] store and filter important fields (depth, crossplane, ...)
+6. [ ] substitute data files (10x10 is missing in the old files, it's present in the new ones)
+7. [x] create console logs to keep track of the program execution

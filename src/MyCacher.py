@@ -27,6 +27,9 @@ class Scan:
       self.inflection_points = []
       self.profile_out_dir = _profile_out_dir
 
+      # log
+      print(f"Reading profile {self.scan_num}:")
+
       # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
       # once it is encountered, collect floats
       i = _begin + 1
@@ -41,7 +44,6 @@ class Scan:
             while j != _end - 1:
                # removing empty strings (once separators) from list and cast the rest to floats
                nums = [e for e in _raw_data[j].split("\t") if e]
-               # print(nums)
                self.data.append([float(nums[0]), float(nums[1])])
                j += 1
             # stop parsing
@@ -52,6 +54,12 @@ class Scan:
 
    def collect_fields(self):
       pass
+
+   def extract_data_column(self, col_index):
+      ext_data = []
+      for i in range(len(self.data) - 1):
+         ext_data.append(self.data[i][col_index])
+      return ext_data
 
    def calc_derivative(self):
       for i in range(len(self.data)):
@@ -65,7 +73,15 @@ class Scan:
                (self.data[i][1] - self.data[inext][1]) / (self.data[i][0] - self.data[inext][0])
             )
 
+   def normalize_data(self):
+      dose_max = max(self.extract_data_column(1))
+      norm_data = []
+      for v in self.data:
+         norm_data.append( (v / dose_max) * 100 )
+      return norm_data
+
    def find_inflection_points(self):
+      print(f"\tInflection Points...", end="")
       self.calc_derivative()
 
       pmax = max(self.derivative)
@@ -77,24 +93,32 @@ class Scan:
          [pmaxi, pmax], # positive peak
          [pmini, pmin]  # negative peak
       ]
+
+      dose_data = self.extract_data_column(1)
+      print(f"\t\tDone", end="\n")
+      print(f"\t- {pmaxi} ; {pmini}", end="\n")
+      print(f"\t- ({pmax:.3f} : {dose_data[pmaxi]:.3f}) ; ({pmin:.3f} : {dose_data[pmini]:.3f})", end="\n")
       
    def output_plot(self):
       self.find_inflection_points()
+      print(f"\tFinal Plot...", end="")
 
       x = np.linspace(0, len(self.derivative), len(self.derivative))
       y = self.derivative
 
-      ext_data = []
+      dose_data = []
       for i in range(len(self.data) - 1):
-         ext_data.append(self.data[i][1])
+         dose_data.append(self.data[i][1])
 
       fig, ax = plt.subplots()
-      ax.plot(x, ext_data, c = "blue")
+      ax.plot(x, dose_data, c = "blue")
       ax.plot(x, y, c = "red")
       ax.scatter([self.inflection_points[0][0], self.inflection_points[1][0]],
                   [self.inflection_points[0][1], self.inflection_points[1][1]], c = "green")
       plt.savefig(f"{self.profile_out_dir}/{self.scan_num}.png")
       plt.close(fig)
+
+      print(f"\t\t\tDone", end="\n")
 
    def log(self):
       print("\n------------------------------------------")
@@ -122,6 +146,9 @@ class Profile:
       self.scans = []
       self.name = file_path.split("/")[-1].replace(".mcc", "")
       raw_data = []
+
+      # log
+      print(f"O===== Reading [{self.name}] =====O")
 
       # create output profile subdirectory
       profile_out_dir = f"{out_dir}/{self.name}/"
