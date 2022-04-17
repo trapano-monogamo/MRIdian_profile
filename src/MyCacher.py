@@ -3,7 +3,13 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, medfilt
+from MyUtils import *
+
+
+log = False
+
+
 
 
 # --- Scan ---
@@ -15,6 +21,7 @@ class Scan:
    data: list
 
    derivative: list
+   filtered_derivative: list
    inflection_points: list
 
    profile_out_dir: str
@@ -24,11 +31,13 @@ class Scan:
       self.fields = {}
       self.data = []
       self.derivative = []
+      self.filtered_derivative = []
       self.inflection_points = []
       self.profile_out_dir = _profile_out_dir
 
       # log
-      print(f"Reading profile {self.scan_num}:")
+      if log:
+         print(f"Reading profile {self.scan_num}:")
 
       # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
       # once it is encountered, collect floats
@@ -52,83 +61,72 @@ class Scan:
 
       self.output_plot()
 
+
    def collect_fields(self):
       pass
 
-   def extract_data_column(self, col_index):
-      ext_data = []
-      for i in range(len(self.data) - 1):
-         ext_data.append(self.data[i][col_index])
-      return ext_data
-
-   def calc_derivative(self):
-      for i in range(len(self.data)):
-         inext = i + 1
-         if inext >= len(self.data):
-            break
-         else:
-            # calculate incremental ratio between current data point and next (the last point in the set gets excluded):
-            # d_dose / d_pos = (dose[i] - dose[inext]) / (pos[i] - pos[inext])
-            self.derivative.append(
-               (self.data[i][1] - self.data[inext][1]) / (self.data[i][0] - self.data[inext][0])
-            )
-
-   def normalize_data(self):
-      dose_max = max(self.extract_data_column(1))
-      norm_data = []
-      for v in self.data:
-         norm_data.append( (v / dose_max) * 100 )
-      return norm_data
 
    def find_inflection_points(self):
-      print(f"\tInflection Points...", end="")
-      self.calc_derivative()
+      if log:
+         print(f"\tInflection Points...", end="")
+
+      # filtered_data = medfilt(self.extract_data_column(1), 3)
+      # for i in range(len(filtered_data)):
+      #    self.data[i][1] = filtered_data[i]
+
+      self.derivative = calc_derivative(self.data)
+
+      data_average = [np.mean(extract_column(self.data, 1)) / 3.0 for _ in range(len(self.data))]
+      # data_average = moving_average(extract_column(self.data, 1), 50)
+      intersections = find_intersections(extract_column(self.data, 1), data_average)
+      # self.derivative = medfilt(self.derivative, 5).tolist()
+      self.derivative = median_filter(self.derivative, 5, [[0,intersections[0]], [intersections[1], len(self.derivative)]])
 
       pmax = max(self.derivative)
       pmaxi = self.derivative.index(pmax)
       pmin = min(self.derivative)
       pmini = self.derivative.index(pmin)
 
+      print(f"{self.scan_num}: {pmaxi > intersections[0]}")
+
       self.inflection_points = [
          [pmaxi, pmax], # positive peak
-         [pmini, pmin]  # negative peak
+         [pmini, pmin],  # negative peak
       ]
 
-      dose_data = self.extract_data_column(1)
-      print(f"\t\tDone", end="\n")
-      print(f"\t- {pmaxi} ; {pmini}", end="\n")
-      print(f"\t- ({pmax:.3f} : {dose_data[pmaxi]:.3f}) ; ({pmin:.3f} : {dose_data[pmini]:.3f})", end="\n")
+      if log:
+         dose_data = extract_column(self.data, 1)
+         print(f"\t\tDone", end="\n")
+         print(f"\t- {pmaxi} ; {pmini}", end="\n")
+         print(f"\t- ({pmax:.3f} : {dose_data[pmaxi]:.3f}) ; ({pmin:.3f} : {dose_data[pmini]:.3f})", end="\n")
       
+
    def output_plot(self):
       self.find_inflection_points()
-      print(f"\tFinal Plot...", end="")
+
+      if log:
+         print(f"\tFinal Plot...", end="")
 
       x = np.linspace(0, len(self.derivative), len(self.derivative))
       y = self.derivative
+      # y2 = moving_average(extract_column(self.data[:-1], 1), 50)
+      y2 = [np.mean(self.data) / 3.0 for _ in range(len(self.data) - 1)]
 
-      dose_data = []
-      for i in range(len(self.data) - 1):
-         dose_data.append(self.data[i][1])
+      dose_data = extract_column(self.data[:-1], 1)
 
       fig, ax = plt.subplots()
       ax.plot(x, dose_data, c = "blue")
       ax.plot(x, y, c = "red")
-      ax.scatter([self.inflection_points[0][0], self.inflection_points[1][0]],
-                  [self.inflection_points[0][1], self.inflection_points[1][1]], c = "green")
+      ax.plot(x, y2, c = "purple")
+      ax.scatter(
+         [self.inflection_points[0][0], self.inflection_points[1][0]],
+         [self.inflection_points[0][1], self.inflection_points[1][1]],
+         c = "green")
       plt.savefig(f"{self.profile_out_dir}/{self.scan_num}.png")
       plt.close(fig)
 
-      print(f"\t\t\tDone", end="\n")
-
-   def log(self):
-      print("\n------------------------------------------")
-      print(f"n: {self.scan_num}")
-      print(self.fields)
-      print(self.data)
-      print("------------------------------------------")
-
-   def log_derivative(self):
-      print(self.derivative)
+      if log:
+         print(f"\t\t\tDone", end="\n")
 
 
 
@@ -148,7 +146,9 @@ class Profile:
       raw_data = []
 
       # log
-      print(f"O===== Reading [{self.name}] =====O")
+      if log:
+         print(f"O===== Reading [{self.name}] =====O")
+      print(f"{self.name}")
 
       # create output profile subdirectory
       profile_out_dir = f"{out_dir}/{self.name}/"
@@ -179,12 +179,7 @@ class Profile:
             i = end_region_index
          i += 1
 
-   def log(self):
-      print("\n\nO=======================================================O")
-      print(self.name)
-      for e in self.scans:
-         e.log()
-      print("O=======================================================O\n\n")
+      print("")
 
 
 
@@ -207,10 +202,3 @@ class Cacher:
       # create profile out of each file in filelist
       for f in filelist:
          self.profiles.append(Profile(f, out_dir))
-
-   def produce_output(self):
-      pass
-
-   def log(self):
-      for e in self.profiles:
-         e.log()
