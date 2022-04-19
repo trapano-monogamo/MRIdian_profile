@@ -87,7 +87,8 @@ class Scan:
       pmin = min(self.derivative)
       pmini = self.derivative.index(pmin)
 
-      print(f"{self.scan_num}: {pmaxi > intersections[0]}")
+      with open(f"./{self.profile_out_dir}/inflection_points.txt", "a") as f:
+         f.write(f"{self.scan_num}\t{pmaxi > intersections[0]}\t{pmaxi}\t{extract_column(self.data, 1)[pmaxi]:.2f}\n")
 
       self.inflection_points = [
          [pmaxi, pmax], # positive peak
@@ -154,6 +155,9 @@ class Profile:
       profile_out_dir = f"{out_dir}/{self.name}/"
       if not os.path.exists(profile_out_dir):
          os.mkdir(profile_out_dir)
+      # delete previous inflection points
+      with open(f"./{out_dir}/{self.name}/inflection_points.txt", "w") as f:
+         f.write("")
 
       # read file
       with open(file_path, "r") as f:
