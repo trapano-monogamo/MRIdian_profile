@@ -1,9 +1,12 @@
 1. [x] create plot PNGs
 2. [ ] rename profile/scan terminology
 3. [x] check inflection points are stored correctly
-4. [ ] check all graphs
+4. [x] check all graphs
 	a. isolate peaks in AVARAGE_SYMMETRISED and take the two middle ones, they will be min and max for sure.
 	b. implement median filter algorithm
+		(localized filter with intersection mean-data)
 5. [ ] store and filter important fields (depth, crossplane, ...)
-6. [ ] substitute data files (10x10 is missing in the old files, it's present in the new ones)
+6. [x] substitute data files (10x10 is missing in the old files, it's present in the new ones)
 7. [x] create console logs to keep track of the program execution
+8. [ ] add comments
+9. [ ] put legends and right units in plots axis
