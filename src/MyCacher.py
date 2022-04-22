@@ -219,7 +219,13 @@ class Cacher:
             temp_table_row = [float(profiles[0].scans[s].fields["SCAN_DEPTH"]) / 10.0]
             for p in range(len(profiles)):
                try:
-                  temp_table_row.append(abs(profiles[p].scans[s].inflection_points[0][0] / 10.0))
+                  dose_at_zero_index = extract_column(profiles[p].scans[s].data, 0).index(0.0)
+                  dose_at_zero = profiles[p].scans[s].data[dose_at_zero_index][1]
+                  temp_table_row.append([
+                     round(abs(profiles[p].scans[s].inflection_points[0][0] / 10.0), 3),
+                     round(profiles[p].scans[s].inflection_points[0][1][1], 3),
+                     round(dose_at_zero, 3)
+                  ])
                except IndexError:
                   temp_table_row.append(0.0)
                except:
@@ -227,7 +233,11 @@ class Cacher:
             table.append(temp_table_row)
          for r in table:
             for c in r:
-               f.write(f"{c}\t".expandtabs(8))
+               if isinstance(c, list):
+                  str_list = f"{', '.join(map(str,c))}\t"
+                  f.write(str_list.expandtabs(30))
+               else:
+                  f.write(f"{c}\t".expandtabs(30))
             f.write("\n")
 
    def output_tables(self):
