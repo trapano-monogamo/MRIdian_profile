@@ -43,17 +43,17 @@ def median_filter(data:list, N:int, ranges:list=None):
         return locally_filtered_data
 
 # calculate the derivative function and returns it for the whole domain
-def calc_derivative(data:list):
+def calc_derivative(x: list, y:list):
     derivative = []
-    for i in range(len(data)):
+    for i in range(len(x)):
         inext = i + 1
-        if inext >= len(data):
+        if inext >= len(x):
             break
         else:
             # calculate incremental ratio between current data point and next (the last point in the set gets excluded):
-            # d_dose / d_pos = (dose[i] - dose[inext]) / (pos[i] - pos[inext])
+            # dy / dx = (dose[i] - dose[inext]) / (pos[i] - pos[inext])
             derivative.append(
-                (data[i][1] - data[inext][1]) / (data[i][0] - data[inext][0])
+                (y[i] - y[inext]) / (x[i] - x[inext])
             )
     return derivative
 

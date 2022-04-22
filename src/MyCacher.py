@@ -3,8 +3,6 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from tabulate import tabulate
-from scipy.signal import find_peaks, medfilt
 from MyUtils import *
 
 
@@ -17,7 +15,8 @@ class Scan:
    # scan properties
    scan_num: int
    fields: dict
-   data: list
+   pos_data: list
+   dose_data: list
 
    # calculated data
    derivative: list
@@ -29,13 +28,15 @@ class Scan:
    def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir):
       self.scan_num = _scan_num
       self.fields = {}
-      self.data = []
+      self.pos_data = []
+      self.dose_data = []
       self.derivative = []
       self.inflection_points = []
       self.profile_out_dir = _profile_out_dir
 
       # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
       # once it is encountered, collect floats
+      temp_complete_data = []
       i = _begin + 1
       while i != _end:
          # if it's a field, separate field name and value (they're separated with an equal sign), and put them in the fields dict
@@ -48,7 +49,8 @@ class Scan:
             while j != _end - 1:
                # removing empty strings (once separators) from list and cast the rest to floats
                nums = [e for e in _raw_data[j].split("\t") if e]
-               self.data.append([float(nums[0]), float(nums[1])])
+               self.pos_data.append(float(nums[0]))
+               self.dose_data.append(float(nums[1]))
                j += 1
             # stop parsing
             break
@@ -68,9 +70,9 @@ class Scan:
    def find_inflection_points(self):
 
       # calculate and locally filter the derivative
-      self.derivative = calc_derivative(self.data)
-      data_average = [np.mean(extract_column(self.data, 1)) / 3.0 for _ in range(len(self.data))]
-      intersections = find_intersections(extract_column(self.data, 1), data_average)
+      self.derivative = calc_derivative(self.pos_data, self.dose_data)
+      data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
+      intersections = find_intersections(self.dose_data, data_average)
       self.derivative = median_filter(self.derivative, 5, [[0,intersections[0]], [intersections[1], len(self.derivative)]])
 
       # find peaks/valleys and their positions
@@ -79,23 +81,20 @@ class Scan:
       pmin = min(self.derivative)
       pmini = self.derivative.index(pmin)
 
-      pos_data = extract_column(self.data, 0)
-      dose_data = extract_column(self.data, 1)
-
       # save inflection points data: [pos, [derivative_value, data_value]]
-      self.inflection_points = [
-         [pos_data[pmaxi + 1], [pmax,dose_data[pmaxi + 1]]], # positive peak
-         [pos_data[pmini + 1], [pmin,dose_data[pmini + 1]]],  # negative peak
-      ]
+      # self.inflection_points = [
+      #    [self.pos_data[pmaxi + 1], [pmax,self.dose_data[pmaxi + 1]]], # positive peak
+      #    [self.pos_data[pmini + 1], [pmin,self.dose_data[pmini + 1]]],  # negative peak
+      # ]
 
       self.inflection_points = [
          [
-            (pos_data[pmaxi] + pos_data[pmaxi + 1]) / 2.0,
-            [pmax, (dose_data[pmaxi] + dose_data[pmaxi + 1]) / 2.0]
+            (self.pos_data[pmaxi] + self.pos_data[pmaxi + 1]) / 2.0,
+            [pmax, (self.dose_data[pmaxi] + self.dose_data[pmaxi + 1]) / 2.0]
          ],
          [
-            (pos_data[pmini] + pos_data[pmini + 1]) / 2.0,
-            [pmin, (dose_data[pmini] + dose_data[pmini + 1]) / 2.0]
+            (self.pos_data[pmini] + self.pos_data[pmini + 1]) / 2.0,
+            [pmin, (self.dose_data[pmini] + self.dose_data[pmini + 1]) / 2.0]
          ]
       ]
 
@@ -106,16 +105,14 @@ class Scan:
       # build axis for plot:
       # x: positions
       # y: data, derivative, mean, inflection points
-      x = extract_column(self.data[:-1], 0)
       y = self.derivative
-      y2 = [np.mean(self.data) / 3.0 for _ in range(len(self.data) - 1)]
-      dose_data = extract_column(self.data[:-1], 1)
+      y2 = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data) - 1)]
 
       # plot components
       fig, ax = plt.subplots()
-      ax.plot(x, dose_data, c = "blue")
-      ax.plot(x, y, c = "red")
-      ax.plot(x, y2, c = "purple")
+      ax.plot(self.pos_data[:-1], self.dose_data[:-1], c = "blue")
+      ax.plot(self.pos_data[:-1], y, c = "red")
+      ax.plot(self.pos_data[:-1], y2, c = "purple")
       # HORRIFYING, plot derivative peaks and actual inflection points
       ax.scatter(
          [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[0][0], self.inflection_points[1][0]],
@@ -193,10 +190,14 @@ class Cacher:
    res_dir: str # where to find data
    out_dir: str # where to store data
 
+   # [!] filter faulty scans and log them to a file
+   faulty_scans_list: list
+
    def __init__(self, _res_dir: str, _out_dir: str):
       self.profiles = []
       self.res_dir = _res_dir
       self.out_dir = _out_dir
+      self.faulty_scans_list = []
 
       # create filelist
       filelist = []
@@ -212,6 +213,8 @@ class Cacher:
       self.output_tables()
 
 
+   # [!] transpose table to work with singular profiles rather than scans across profiles
+   # [!] order profiles' scans and check for missing ones
    def create_table(self, profiles: list):
       with open(f"{self.out_dir}/{profiles[0].name.split(' ')[-1]}.txt", "w") as f:
          table = [["depth"] + [e.name.split(" ")[3] for e in profiles]]
@@ -219,11 +222,13 @@ class Cacher:
             temp_table_row = [float(profiles[0].scans[s].fields["SCAN_DEPTH"]) / 10.0]
             for p in range(len(profiles)):
                try:
-                  dose_at_zero_index = extract_column(profiles[p].scans[s].data, 0).index(0.0)
-                  dose_at_zero = profiles[p].scans[s].data[dose_at_zero_index][1]
+                  dose_at_zero_index = profiles[p].scans[s].pos_data.index(0.0)
+                  dose_at_zero = profiles[p].scans[s].dose_data[dose_at_zero_index]
                   temp_table_row.append([
                      round(abs(profiles[p].scans[s].inflection_points[0][0] / 10.0), 3),
+                     round(abs(profiles[p].scans[s].inflection_points[1][0] / 10.0), 3),
                      round(profiles[p].scans[s].inflection_points[0][1][1], 3),
+                     round(profiles[p].scans[s].inflection_points[1][1][1], 3),
                      round(dose_at_zero, 3)
                   ])
                except IndexError:
@@ -235,9 +240,9 @@ class Cacher:
             for c in r:
                if isinstance(c, list):
                   str_list = f"{', '.join(map(str,c))}\t"
-                  f.write(str_list.expandtabs(30))
+                  f.write(str_list.expandtabs(50))
                else:
-                  f.write(f"{c}\t".expandtabs(30))
+                  f.write(f"{c}\t".expandtabs(50))
             f.write("\n")
 
    def output_tables(self):
