@@ -1,0 +1,4 @@
+*.xlsx
+*.pdf
+./**/*.txt
+!./out/*.txt
