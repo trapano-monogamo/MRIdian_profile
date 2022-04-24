@@ -3,10 +3,12 @@
 3. [x] check inflection points are stored correctly
 4. [x] check all graphs
 	a. isolate peaks in AVARAGE_SYMMETRISED and take the two middle ones, they will be min and max for sure.
-	b. implement median filter algorithm
-		(localized filter with intersection mean-data)
-5. [ ] store and filter important fields (depth, crossplane, ...)
+	b. implement median filter algorithm (localized filter with intersection mean-data)
+5. [x] store and filter important fields (depth, crossplane, ...)
 6. [x] substitute data files (10x10 is missing in the old files, it's present in the new ones)
 7. [x] create console logs to keep track of the program execution
-8. [ ] add comments
+8. [x] add comments
 9. [ ] put legends and right units in plots axis
+
+10. [ ] refactor inflection_points storing and plotting
+11. [ ] figure out why sanpietro_symmetrised.txt is missing scan at 24x24 2.0cm
