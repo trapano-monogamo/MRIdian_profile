@@ -72,6 +72,7 @@ class Scan:
    def find_inflection_points(self):
 
       # calculate and locally filter the derivative
+      # self.dose_data = median_filter(self.dose_data, 5)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
       intersections = find_intersections(self.dose_data, data_average)
@@ -129,13 +130,13 @@ class Scan:
       fig, ax = plt.subplots()
       ax.plot(self.pos_data[:-1], self.dose_data[:-1], c = "blue")
       ax.plot(self.pos_data[:-1], y, c = "red")
-      ax.plot(self.pos_data[:-2], y2, c = "yellow")
+      ax.plot(self.pos_data[:-2], y2, c = "green")
       ax.plot(self.pos_data[:-1], y3, c = "purple")
       # HORRIFYING, plot derivative peaks and actual inflection points
       ax.scatter(
          [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0]],
          [self.inflection_points[0][1][0], self.inflection_points[1][1][0], self.inflection_points[0][1][1], self.inflection_points[1][1][1], self.inflection_points[2][1][0], self.inflection_points[3][1][0]],
-         c = "green")
+         c = "black")
       # save plot in the right profile subdirectory
       plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
       plt.close(fig)
@@ -282,6 +283,8 @@ class Cacher:
                   round(dose_at_zero, 3),
                   round(abs(temp_profile_scans[s].inflection_points[2][0] / 10.0), 3),
                   round(abs(temp_profile_scans[s].inflection_points[3][0] / 10.0), 3),
+                  round(temp_profile_scans[s].inflection_points[2][1][1], 3),
+                  round(temp_profile_scans[s].inflection_points[3][1][1], 3),
                ])
             else:
                temp_table_row.append("/")
@@ -311,12 +314,12 @@ class Cacher:
          table = self.create_table(v, measurement_depths)
          table = transpose_table(table)
          with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
-            f.write("deriv_1, deriv_2, dose_1, dose_2, dose_0, second_deriv_1, second_deriv_2\n\n")
+            f.write("deriv_1, deriv_2, dose_1, dose_2, dose_0, second_deriv_1, second_deriv_2, second_dose_1, second_dose_2\n\n")
             for r in table:
                for c in r:
                   if isinstance(c, list):
                      str_list = f"{', '.join(map(str,c))}\t"
-                     f.write(str_list.expandtabs(60))
+                     f.write(str_list.expandtabs(70))
                   else:
-                     f.write(f"{c}\t".expandtabs(60))
+                     f.write(f"{c}\t".expandtabs(70))
                f.write("\n")
