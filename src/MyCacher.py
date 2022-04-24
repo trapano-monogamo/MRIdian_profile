@@ -76,8 +76,9 @@ class Scan:
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
       intersections = find_intersections(self.dose_data, data_average)
-      self.derivative = median_filter(self.derivative, 5, [[0,intersections[0]], [intersections[1], len(self.derivative)]])
-      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
+      # self.derivative = median_filter(self.derivative, 5, [[0,intersections[0]], [intersections[1], len(self.derivative)]])
+      self.derivative = median_filter(self.derivative, 5)
+      self.second_derivative = calc_derivative(self.pos_data[:-1], median_filter(self.derivative, 5))
 
       # find peaks/valleys and their positions
       pmax = max(self.derivative)
@@ -217,6 +218,9 @@ class Cacher:
       self.res_dir = _res_dir
       self.out_dir = _out_dir
       self.faulty_scans_list = []
+
+      if not os.path.exists(_out_dir):
+         os.mkdir(_out_dir)
 
       # create filelist
       filelist = []

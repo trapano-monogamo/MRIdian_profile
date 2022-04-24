@@ -1,0 +1,22 @@
+dose_filtered:
+	- dosi originali		[filtrate]
+	- derivata prima		[filtrata localmente]
+	- derivata seconda	[non filtrata]
+
+
+original_not_filtered:
+	- dosi originali		[non filtrate]
+	- derivata prima		[filtrata localmente]
+	- derivata seconda	[non filtrata]
+
+
+second_derivative_filtered:
+	- dosi originali		[non filtrate]
+	- derivata prima		[filtrata localmente]
+	- derivata seconda	[filtrata]
+
+
+both_derivatives_filtered:
+	- dosi originali		[non filtrate]
+	- derivata prima		[filtrata]
+	- derivata seconda	[non filtrata]
