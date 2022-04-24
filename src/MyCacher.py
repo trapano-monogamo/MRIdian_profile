@@ -72,13 +72,14 @@ class Scan:
    def find_inflection_points(self):
 
       # calculate and locally filter the derivative
-      # self.dose_data = median_filter(self.dose_data, 5)
+      self.dose_data = median_filter(self.dose_data, 5)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
       intersections = find_intersections(self.dose_data, data_average)
       # self.derivative = median_filter(self.derivative, 5, [[0,intersections[0]], [intersections[1], len(self.derivative)]])
       self.derivative = median_filter(self.derivative, 5)
-      self.second_derivative = calc_derivative(self.pos_data[:-1], median_filter(self.derivative, 5))
+      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
+      self.second_derivative = median_filter(self.second_derivative, 5)
 
       # find peaks/valleys and their positions
       pmax = max(self.derivative)
@@ -128,15 +129,18 @@ class Scan:
       y3 = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data) - 1)]
 
       # plot components
-      fig, ax = plt.subplots()
-      ax.plot(self.pos_data[:-1], self.dose_data[:-1], c = "blue")
-      ax.plot(self.pos_data[:-1], y, c = "red")
-      ax.plot(self.pos_data[:-2], y2, c = "green")
-      ax.plot(self.pos_data[:-1], y3, c = "purple")
-      # HORRIFYING, plot derivative peaks and actual inflection points
-      ax.scatter(
-         [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0]],
-         [self.inflection_points[0][1][0], self.inflection_points[1][1][0], self.inflection_points[0][1][1], self.inflection_points[1][1][1], self.inflection_points[2][1][0], self.inflection_points[3][1][0]],
+      fig, ax = plt.subplots(2, 1)
+      ax[0].plot(self.pos_data[:-1], self.dose_data[:-1], c = "blue")
+      ax[0].plot(self.pos_data[:-1], y3, c = "purple")
+      ax[0].scatter(
+         [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0]],
+         [self.inflection_points[0][1][1], self.inflection_points[1][1][1], self.inflection_points[2][1][1], self.inflection_points[3][1][1]],
+         c = "black")
+      ax[1].plot(self.pos_data[:-1], y, c = "red")
+      ax[1].plot(self.pos_data[:-2], y2, c = "green")
+      ax[1].scatter(
+         [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0]],
+         [self.inflection_points[0][1][0], self.inflection_points[1][1][0], self.inflection_points[2][1][0], self.inflection_points[3][1][0]],
          c = "black")
       # save plot in the right profile subdirectory
       plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
