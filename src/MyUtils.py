@@ -19,8 +19,14 @@ def moving_average(data:list, N:int):
         window = data[i - offset : i + offset]
         window_average = sum(window) / N
         averages.append(window_average)
+        if i == offset: # first iteration
+            # fill head of dataset with first modified value
+            for n in range(offset):
+                averages[n] = window_average
+        if i == len(data) - offset - 1: # last iteration
+            # fill tail with last modified value
+            averages.extend([window_average for _ in range(offset)])
         i += 1
-    averages.extend(data[len(data) - offset :])
     return averages
 
 # applies median filter to dataset in given ranges (if not given, the gets applied to the whole domain)

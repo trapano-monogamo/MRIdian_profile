@@ -8,5 +8,7 @@ def main():
    # c = Cacher("./res/", "./output tests/both_derivatives_filtered/", TestSettings(moving_average, 3, 4))
    c = Cacher("./res/", "./output tests/all_filtered/", TestSettings(moving_average, 3, 5))
 
+   # c = Cacher("./res/", "./out/", TestSettings(moving_average, 3, 4))
+
 if __name__ == '__main__':
    main()
