@@ -82,3 +82,12 @@ def normalize_data(data:list):
     for v in data:
         norm_data.append( (v / dose_max) * 100 )
     return norm_data
+
+def transpose_table(table):
+    result = []
+    for i in range(len(table[0])):
+        row = []
+        for item in table:
+            row.append(item[i])
+        result.append(row)
+    return result

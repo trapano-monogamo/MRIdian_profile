@@ -1,6 +1,7 @@
 # TODO: remove \t from Profile->raw_data, and avoid those horrible "\t\tSOMETHING"...
 
 import os
+import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 from MyUtils import *
@@ -20,6 +21,7 @@ class Scan:
 
    # calculated data
    derivative: list
+   second_derivative: list
    inflection_points: list
 
    # useful data
@@ -74,12 +76,18 @@ class Scan:
       data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
       intersections = find_intersections(self.dose_data, data_average)
       self.derivative = median_filter(self.derivative, 5, [[0,intersections[0]], [intersections[1], len(self.derivative)]])
+      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
 
       # find peaks/valleys and their positions
       pmax = max(self.derivative)
       pmaxi = self.derivative.index(pmax)
       pmin = min(self.derivative)
       pmini = self.derivative.index(pmin)
+
+      spmax = max(self.second_derivative[:len(self.second_derivative) // 2])
+      spmaxi = self.second_derivative.index(spmax)
+      spmin = min(self.second_derivative[:len(self.second_derivative) // 2])
+      spmini = self.second_derivative.index(spmin)
 
       # save inflection points data: [pos, [derivative_value, data_value]]
       # self.inflection_points = [
@@ -88,6 +96,7 @@ class Scan:
       # ]
 
       self.inflection_points = [
+         # first derivative
          [
             (self.pos_data[pmaxi] + self.pos_data[pmaxi + 1]) / 2.0,
             [pmax, (self.dose_data[pmaxi] + self.dose_data[pmaxi + 1]) / 2.0]
@@ -95,6 +104,13 @@ class Scan:
          [
             (self.pos_data[pmini] + self.pos_data[pmini + 1]) / 2.0,
             [pmin, (self.dose_data[pmini] + self.dose_data[pmini + 1]) / 2.0]
+         ],
+         # second derivative (only on first half)
+         [
+            self.pos_data[spmaxi], [spmax, self.dose_data[spmaxi]]
+         ],
+         [
+            self.pos_data[spmini], [spmin, self.dose_data[spmini]]
          ]
       ]
 
@@ -106,20 +122,22 @@ class Scan:
       # x: positions
       # y: data, derivative, mean, inflection points
       y = self.derivative
-      y2 = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data) - 1)]
+      y2 = self.second_derivative
+      y3 = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data) - 1)]
 
       # plot components
       fig, ax = plt.subplots()
       ax.plot(self.pos_data[:-1], self.dose_data[:-1], c = "blue")
       ax.plot(self.pos_data[:-1], y, c = "red")
-      ax.plot(self.pos_data[:-1], y2, c = "purple")
+      ax.plot(self.pos_data[:-2], y2, c = "yellow")
+      ax.plot(self.pos_data[:-1], y3, c = "purple")
       # HORRIFYING, plot derivative peaks and actual inflection points
       ax.scatter(
-         [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[0][0], self.inflection_points[1][0]],
-         [self.inflection_points[0][1][0], self.inflection_points[1][1][0], self.inflection_points[0][1][1], self.inflection_points[1][1][1]],
+         [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0]],
+         [self.inflection_points[0][1][0], self.inflection_points[1][1][0], self.inflection_points[0][1][1], self.inflection_points[1][1][1], self.inflection_points[2][1][0], self.inflection_points[3][1][0]],
          c = "green")
       # save plot in the right profile subdirectory
-      plt.savefig(f"{self.profile_out_dir}/{self.scan_num}.png")
+      plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
       plt.close(fig)
       
 
@@ -245,9 +263,36 @@ class Cacher:
                   f.write(f"{c}\t".expandtabs(50))
             f.write("\n")
 
+   # [!] transpose table to work with singular profiles rather than scans across profiles
+   # [!] order profiles' scans and check for missing ones
+   def create_table(self, profiles: list, measurement_depths: list):
+      table = [["depth"] + [str(m / 10.0) for m in measurement_depths]]
+      for p in range(len(profiles)):
+         temp_table_row = [profiles[p].name.split(" ")[3]]
+         for s in range(len(measurement_depths)):
+            temp_profile_scans = profiles[p].scans
+            dose_at_zero_index = temp_profile_scans[s].pos_data.index(0.0)
+            dose_at_zero = temp_profile_scans[s].dose_data[dose_at_zero_index]
+            if float(temp_profile_scans[s].fields["SCAN_DEPTH"]) == measurement_depths[s]:
+               temp_table_row.append([
+                  round(abs(temp_profile_scans[s].inflection_points[0][0] / 10.0), 3),
+                  round(abs(temp_profile_scans[s].inflection_points[1][0] / 10.0), 3),
+                  round(temp_profile_scans[s].inflection_points[0][1][1], 3),
+                  round(temp_profile_scans[s].inflection_points[1][1][1], 3),
+                  round(dose_at_zero, 3),
+                  round(abs(temp_profile_scans[s].inflection_points[2][0] / 10.0), 3),
+                  round(abs(temp_profile_scans[s].inflection_points[3][0] / 10.0), 3),
+               ])
+            else:
+               temp_table_row.append("/")
+               # insert null profile to offset right profile
+               temp_profile_scans.insert(s, None)
+         table.append(temp_table_row)
+      return table
+
    def output_tables(self):
       # group profiles of same measurement
-      measurements: dict = dict()
+      measurements = dict()
       for p in self.profiles:
          measurement_name = p.name.split(" ")[-1]
          if measurement_name in measurements:
@@ -256,4 +301,22 @@ class Cacher:
             measurements[measurement_name] = [p]
 
       for k, v in measurements.items():
-         self.create_table(v)
+         # loop through profiles to get all possible depth and order them
+         measurement_depths = []
+         for p in v:
+            for s in p.scans:
+               if not float(s.fields["SCAN_DEPTH"]) in measurement_depths:
+                  measurement_depths.append(float(s.fields["SCAN_DEPTH"]))
+         measurement_depths.sort()
+         table = self.create_table(v, measurement_depths)
+         table = transpose_table(table)
+         with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
+            f.write("deriv_1, deriv_2, dose_1, dose_2, dose_0, second_deriv_1, second_deriv_2\n\n")
+            for r in table:
+               for c in r:
+                  if isinstance(c, list):
+                     str_list = f"{', '.join(map(str,c))}\t"
+                     f.write(str_list.expandtabs(60))
+                  else:
+                     f.write(f"{c}\t".expandtabs(60))
+               f.write("\n")
