@@ -10,14 +10,14 @@ from MyUtils import *
 
 
 class TestSettings:
-   test_window: int
+   test_args: list
    test_preset: int
-   test_filter: int
+   test_method: int
 
-   def __init__(self, tf, tw, tp):
-      self.test_filter = tf
-      self.test_window = tw
+   def __init__(self, tp , tm, ta):
       self.test_preset = tp
+      self.test_method = tm
+      self.test_args = ta
 
 
 # --- Scan ---
@@ -85,36 +85,36 @@ class Scan:
       
 
    def dose_filtered_processing(self):
-      self.dose_data = self.test_settings.test_filter(self.dose_data, self.test_settings.test_window)
+      self.dose_data = self.test_settings.test_method(self.dose_data, *self.test_settings.test_args)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
       
 
    def first_derivative_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.test_settings.test_filter(self.derivative, self.test_settings.test_window)
+      self.derivative = self.test_settings.test_method(self.derivative, *self.test_settings.test_args)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
       
 
    def second_derivative_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
-      self.second_derivative = self.test_settings.test_filter(self.second_derivative, self.test_settings.test_window)
+      self.second_derivative = self.test_settings.test_method(self.second_derivative, *self.test_settings.test_args)
       
 
    def both_derivatives_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.test_settings.test_filter(self.derivative, self.test_settings.test_window)
+      self.derivative = self.test_settings.test_method(self.derivative, *self.test_settings.test_args)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
-      self.second_derivative = self.test_settings.test_filter(self.second_derivative, self.test_settings.test_window)
+      self.second_derivative = self.test_settings.test_method(self.second_derivative, *self.test_settings.test_args)
       
 
    def all_filtered_processing(self):
-      self.dose_data = self.test_settings.test_filter(self.dose_data, self.test_settings.test_window)
+      self.dose_data = self.test_settings.test_method(self.dose_data, *self.test_settings.test_args)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.test_settings.test_filter(self.derivative, self.test_settings.test_window)
+      self.derivative = self.test_settings.test_method(self.derivative, *self.test_settings.test_args)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
-      self.second_derivative = self.test_settings.test_filter(self.second_derivative, self.test_settings.test_window)
+      self.second_derivative = self.test_settings.test_method(self.second_derivative, *self.test_settings.test_args)
 
 
    # Calculate derivative, than apply median filter to portions of the derivative to
@@ -274,7 +274,7 @@ class Cacher:
    # [!] filter faulty scans and log them to a file
    faulty_scans_list: list
 
-   def __init__(self, _res_dir: str, _out_dir: str, _test_settings: TestSettings):
+   def __init__(self, _res_dir: str, _out_dir: str, _test_settings):
       self.profiles = []
       self.res_dir = _res_dir
       self.out_dir = _out_dir
@@ -295,6 +295,7 @@ class Cacher:
          self.profiles.append(Profile(f, self.out_dir, _test_settings))
 
       self.output_tables()
+      
 
 
    # [!] transpose table to work with singular profiles rather than scans across profiles
