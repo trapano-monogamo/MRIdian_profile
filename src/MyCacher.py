@@ -285,6 +285,9 @@ class Profile:
             i = end_region_index
          i += 1
 
+      if "SANPIETRO_Sy_0.1mm" in self.name:
+         print(len(self.scans[0].pos_data), len(self.scans[0].dose_data), len(self.scans[0].derivative))
+
 
 
 # --- Cacher ---
