@@ -15,6 +15,7 @@ def extract_column(data:list, n):
 def moving_average(data:list, N:int):
     offset = math.floor(N/2)
     averages = data[:offset]
+    window_average = 0
     i = offset
     while i < len(data) - offset:
         window = data[i - offset : i + offset]
@@ -46,7 +47,7 @@ def median_filter(data:list, N:int, ranges:list=None):
         if len(data) != len(locally_filtered_data):
             # print(data)
             # print(locally_filtered_data)
-            raise Exception(f"Data corrupted: found lengths {len(data)} and {len(locally_filtered_data)}")
+            raise Exception(f"Something went wrong: found lengths {len(data)} and {len(locally_filtered_data)}")
         return locally_filtered_data
 
 # calculate the derivative function and returns it for the whole domain

@@ -87,7 +87,7 @@ class Scan:
 
    def apply_filter(self, _data:list):
       if self.test_settings.test_method == "moving_average":
-         return moving_average(_data, 11)
+         return moving_average(_data, 13)
       elif self.test_settings.test_method == "median_filter":
          # data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
          # intersections = find_intersections(self.dose_data, data_average)
@@ -108,6 +108,9 @@ class Scan:
       self.dose_data = self.apply_filter(self.dose_data)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
+      ranges = [[0,10], [len(self.second_derivative) - 10, len(self.second_derivative)]]
+      self.second_derivative = median_filter(self.second_derivative, 3, ranges)
+      # self.second_derivative = [self.second_derivative[5] for _ in range(5)] + self.second_derivative[5:-5] + [self.second_derivative[-5] for _ in range(5)]
       
 
    def first_derivative_filtered_processing(self):
