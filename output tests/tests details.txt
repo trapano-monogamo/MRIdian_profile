@@ -3,30 +3,25 @@ original_not_filtered:
 	- derivata prima        [non filtrata]
 	- derivata seconda      [non filtrata]
 
-
 dose_filtered:
 	- dosi originali        [filtrate]
 	- derivata prima        [non filtrata]
 	- derivata seconda      [non filtrata]
-
 
 first_derivative_filtered:
 	- dosi originali        [non filtrate]
 	- derivata prima        [filtrata]
 	- derivata seconda      [non filtrata]
 
-
 second_derivative_filtered:
 	- dosi originali        [non filtrate]
 	- derivata prima        [non filtrata]
 	- derivata seconda      [filtrata]
 
-
 both_derivatives_filtered:
 	- dosi originali        [non filtrate]
 	- derivata prima        [filtrata]
 	- derivata seconda      [filtrata]
-
 
 all_filtered:
 	- dosi originali        [filtrate]

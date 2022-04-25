@@ -1,5 +1,5 @@
 from scipy.signal import find_peaks, medfilt
-from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import splrep, splev
 import numpy as np
 import statistics
 import math

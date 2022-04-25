@@ -10,14 +10,12 @@ from MyUtils import *
 
 
 class TestSettings:
-   test_args: list
    test_preset: int
-   test_method: int
+   test_method: str
 
-   def __init__(self, tp , tm, ta):
+   def __init__(self, tp , tm):
       self.test_preset = tp
       self.test_method = tm
-      self.test_args = ta
 
 
 # --- Scan ---
@@ -51,7 +49,14 @@ class Scan:
       self.inflection_points = []
       self.profile_out_dir = _profile_out_dir
 
-      self.test_presets = [self.not_filtered_processing, self.dose_filtered_processing, self.first_derivative_filtered_processing, self.second_derivative_filtered_processing, self.both_derivatives_filtered_processing, self.all_filtered_processing]
+      self.test_presets = [
+         self.not_filtered_processing,
+         self.dose_filtered_processing,
+         self.first_derivative_filtered_processing,
+         self.second_derivative_filtered_processing,
+         self.both_derivatives_filtered_processing,
+         self.all_filtered_processing
+      ]
       self.test_settings = _test_settings
 
       # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
@@ -79,42 +84,55 @@ class Scan:
       self.produce_results()
 
 
+   def apply_filter(self, _data:list):
+      if self.test_settings.test_method == "moving_average":
+         return moving_average(_data, 3)
+      elif self.test_settings.test_method == "median_filter":
+         # data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
+         # intersections = find_intersections(self.dose_data, data_average)
+         return median_filter(_data, 3)
+      elif self.test_settings.test_method == "spline":
+         return splev(self.pos_data, splrep(self.pos_data, _data))
+      else:
+         raise Exception("Lol not yet")
+
+
    def not_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
       
 
    def dose_filtered_processing(self):
-      self.dose_data = self.test_settings.test_method(self.dose_data, *self.test_settings.test_args)
+      self.dose_data = self.apply_filter(self.dose_data)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
       
 
    def first_derivative_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.test_settings.test_method(self.derivative, *self.test_settings.test_args)
+      self.derivative = self.apply_filter(self.derivative)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
       
 
    def second_derivative_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
-      self.second_derivative = self.test_settings.test_method(self.second_derivative, *self.test_settings.test_args)
+      self.second_derivative = self.apply_filter(self.second_derivative)
       
 
    def both_derivatives_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.test_settings.test_method(self.derivative, *self.test_settings.test_args)
+      self.derivative = self.apply_filter(self.derivative)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
-      self.second_derivative = self.test_settings.test_method(self.second_derivative, *self.test_settings.test_args)
+      self.second_derivative = self.apply_filter(self.second_derivative)
       
 
    def all_filtered_processing(self):
-      self.dose_data = self.test_settings.test_method(self.dose_data, *self.test_settings.test_args)
+      self.dose_data = self.apply_filter(self.dose_data)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.test_settings.test_method(self.derivative, *self.test_settings.test_args)
+      self.derivative = self.apply_filter(self.derivative)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
-      self.second_derivative = self.test_settings.test_method(self.second_derivative, *self.test_settings.test_args)
+      self.second_derivative = self.apply_filter(self.second_derivative)
 
 
    # Calculate derivative, than apply median filter to portions of the derivative to
@@ -130,8 +148,6 @@ class Scan:
       # calculate and locally filter the derivative
       # self.dose_data = median_filter(self.dose_data, 5)
       # self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      # data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
-      # intersections = find_intersections(self.dose_data, data_average)
       # self.derivative = median_filter(self.derivative, 5, [[0,intersections[0]], [intersections[1], len(self.derivative)]])
       # self.derivative = median_filter(self.derivative, 5)
       # self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)

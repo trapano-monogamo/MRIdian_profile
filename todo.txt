@@ -12,3 +12,5 @@
 
 10. [ ] refactor inflection_points storing and plotting
 11. [ ] figure out why sanpietro_symmetrised.txt is missing scan at 24x24 2.0cm
+
+12. [ ] TestSettings -> ProcessingSettings
