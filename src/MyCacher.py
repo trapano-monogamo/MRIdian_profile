@@ -93,7 +93,8 @@ class Scan:
          # intersections = find_intersections(self.dose_data, data_average)
          return median_filter(_data, 3)
       elif self.test_settings.test_method == "spline":
-         return splev(self.pos_data, splrep(self.pos_data, _data))
+         tck = splrep(self.pos_data[:-1], _data)
+         return splev(self.pos_data[:-1], tck).tolist()
       else:
          raise Exception("Lol not yet")
 

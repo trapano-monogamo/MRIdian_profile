@@ -9,7 +9,7 @@ def main():
    # c = Cacher("./res/", "./output tests/both_derivatives_filtered/", TestSettings(5, moving_average, [3]))
    # c = Cacher("./res/", "./output tests/all_filtered/", TestSettings(6, moving_average, [3]))
 
-   c = Cacher("./res/", "./output tests/with sanpietro 20x20 0.1mm - moving_average - first_derivative_filtered/", TestSettings(2, "moving_average"))
+   c = Cacher("./res/", "./output tests/with sanpietro 20x20 0.1mm - spline - first_derivative_filtered/", TestSettings(2, "spline"))
 
 if __name__ == '__main__':
    main()
