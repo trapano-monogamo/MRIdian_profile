@@ -1,29 +1,34 @@
 original_not_filtered:
-	- dosi originali        [non filtrate]
-	- derivata prima        [non filtrata]
-	- derivata seconda      [non filtrata]
+	- dose data             [not filtered]
+	- first derivative      [not filtered]
+	- second derivative     [not filtered]
 
 dose_filtered:
-	- dosi originali        [filtrate]
-	- derivata prima        [non filtrata]
-	- derivata seconda      [non filtrata]
+	- dose data             [filtered]
+	- first derivative      [not filtered]
+	- second derivative     [not filtered]
 
 first_derivative_filtered:
-	- dosi originali        [non filtrate]
-	- derivata prima        [filtrata]
-	- derivata seconda      [non filtrata]
+	- dose data             [not filtered]
+	- first derivative      [filtered]
+	- second derivative     [not filtered]
+
+dose_first_derivative_filtered:
+	- dose data             [filtered]
+	- first derivative      [filtered]
+	- second derivative     [not filtered]
 
 second_derivative_filtered:
-	- dosi originali        [non filtrate]
-	- derivata prima        [non filtrata]
-	- derivata seconda      [filtrata]
+	- dose data             [not filtered]
+	- first derivative      [filtered]
+	- second derivative     [not filtered]
 
 both_derivatives_filtered:
-	- dosi originali        [non filtrate]
-	- derivata prima        [filtrata]
-	- derivata seconda      [filtrata]
+	- dose data             [not filtered]
+	- first derivative      [filtered]
+	- second derivative     [filtered]
 
 all_filtered:
-	- dosi originali        [filtrate]
-	- derivata prima        [filtrata]
-	- derivata seconda      [filtrata]
+	- dose data             [filtered]
+	- first derivative      [filtered]
+	- second derivative     [filtered]

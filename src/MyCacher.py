@@ -53,6 +53,7 @@ class Scan:
          self.not_filtered_processing,
          self.dose_filtered_processing,
          self.first_derivative_filtered_processing,
+         self.dose_first_derivative_filtered_processing,
          self.second_derivative_filtered_processing,
          self.both_derivatives_filtered_processing,
          self.all_filtered_processing
@@ -109,6 +110,13 @@ class Scan:
       
 
    def first_derivative_filtered_processing(self):
+      self.derivative = calc_derivative(self.pos_data, self.dose_data)
+      self.derivative = self.apply_filter(self.derivative)
+      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
+      
+
+   def dose_first_derivative_filtered_processing(self):
+      self.dose_data = self.apply_filter(self.dose_data)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.derivative = self.apply_filter(self.derivative)
       self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
