@@ -216,7 +216,7 @@ class Scan:
          [self.inflection_points[0][1][0], self.inflection_points[1][1][0], self.inflection_points[2][1][0], self.inflection_points[3][1][0]],
          c = "black")
       # save plot in the right profile subdirectory
-      plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png", dpi=400)
+      plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
       plt.close(fig)
       
 
