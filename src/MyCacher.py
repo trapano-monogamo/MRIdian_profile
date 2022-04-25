@@ -87,7 +87,7 @@ class Scan:
 
    def apply_filter(self, _data:list):
       if self.test_settings.test_method == "moving_average":
-         return moving_average(_data, 9)
+         return moving_average(_data, 11)
       elif self.test_settings.test_method == "median_filter":
          # data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
          # intersections = find_intersections(self.dose_data, data_average)
