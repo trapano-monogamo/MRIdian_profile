@@ -87,7 +87,7 @@ class Scan:
 
    def apply_filter(self, _data:list):
       if self.test_settings.test_method == "moving_average":
-         return moving_average(_data, 7)
+         return moving_average(_data, 9)
       elif self.test_settings.test_method == "median_filter":
          # data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
          # intersections = find_intersections(self.dose_data, data_average)
@@ -286,9 +286,6 @@ class Profile:
             i = end_region_index
          i += 1
 
-      if "SANPIETRO_Sy_0.1mm" in self.name:
-         print(len(self.scans[0].pos_data), len(self.scans[0].dose_data), len(self.scans[0].derivative))
-
 
 
 # --- Cacher ---
@@ -381,7 +378,7 @@ class Cacher:
                for c in r:
                   if isinstance(c, list):
                      str_list = f"{', '.join(map(str,c))}\t"
-                     f.write(str_list.expandtabs(70))
+                     f.write(str_list.expandtabs(80))
                   else:
-                     f.write(f"{c}\t".expandtabs(70))
+                     f.write(f"{c}\t".expandtabs(80))
                f.write("\n")
