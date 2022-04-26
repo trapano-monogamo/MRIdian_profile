@@ -63,6 +63,7 @@ def calc_derivative(x: list, y:list):
             derivative.append(
                 (y[i] - y[inext]) / (x[i] - x[inext])
             )
+    derivative.append(derivative[-1])
     return derivative
 
 def find_intersections(f: list, g: list):

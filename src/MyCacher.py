@@ -46,6 +46,7 @@ class Scan:
       self.pos_data = []
       self.dose_data = []
       self.derivative = []
+      self.second_derivative = []
       self.inflection_points = []
       self.profile_out_dir = _profile_out_dir
 
@@ -101,49 +102,50 @@ class Scan:
 
    def not_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
+      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
       
 
    def dose_filtered_processing(self):
       self.dose_data = self.apply_filter(self.dose_data)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
+      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
       ranges = [[0,10], [len(self.second_derivative) - 10, len(self.second_derivative)]]
       self.second_derivative = median_filter(self.second_derivative, 3, ranges)
-      # self.second_derivative = [self.second_derivative[5] for _ in range(5)] + self.second_derivative[5:-5] + [self.second_derivative[-5] for _ in range(5)]
-      
+      print(len(self.dose_data) == len(self.derivative) == len(self.second_derivative))
+
 
    def first_derivative_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.derivative = self.apply_filter(self.derivative)
-      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
-      
+      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
+
 
    def dose_first_derivative_filtered_processing(self):
       self.dose_data = self.apply_filter(self.dose_data)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.derivative = self.apply_filter(self.derivative)
-      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
-      
+      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
+
 
    def second_derivative_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
+      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
       self.second_derivative = self.apply_filter(self.second_derivative)
-      
+
 
    def both_derivatives_filtered_processing(self):
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.derivative = self.apply_filter(self.derivative)
-      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
+      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
       self.second_derivative = self.apply_filter(self.second_derivative)
-      
+
+
 
    def all_filtered_processing(self):
       self.dose_data = self.apply_filter(self.dose_data)
       self.derivative = calc_derivative(self.pos_data, self.dose_data)
       self.derivative = self.apply_filter(self.derivative)
-      self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
+      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
       self.second_derivative = self.apply_filter(self.second_derivative)
 
 
@@ -211,18 +213,17 @@ class Scan:
       # y: data, derivative, mean, inflection points
       y = self.derivative
       y2 = self.second_derivative
-      y3 = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data) - 1)]
+      y3 = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
 
       # plot components
       fig, ax = plt.subplots(2, 1)
-      ax[0].plot(self.pos_data[:-1], self.dose_data[:-1], c = "blue")
-      ax[0].plot(self.pos_data[:-1], y3, c = "purple")
+      ax[0].plot(self.pos_data, self.dose_data, c = "blue")
       ax[0].scatter(
          [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0]],
          [self.inflection_points[0][1][1], self.inflection_points[1][1][1], self.inflection_points[2][1][1], self.inflection_points[3][1][1]],
          c = "black")
-      ax[1].plot(self.pos_data[:-1], y, c = "red")
-      ax[1].plot(self.pos_data[:-2], y2, c = "green")
+      ax[1].plot(self.pos_data, self.derivative, c = "red")
+      ax[1].plot(self.pos_data, self.second_derivative, c = "green")
       ax[1].scatter(
          [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0]],
          [self.inflection_points[0][1][0], self.inflection_points[1][1][0], self.inflection_points[2][1][0], self.inflection_points[3][1][0]],
