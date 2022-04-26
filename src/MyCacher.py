@@ -180,29 +180,31 @@ class Scan:
       spmini = self.second_derivative.index(spmin)
 
       # save inflection points data: [pos, [derivative_value, data_value]]
-      # self.inflection_points = [
-      #    [self.pos_data[pmaxi + 1], [pmax,self.dose_data[pmaxi + 1]]], # positive peak
-      #    [self.pos_data[pmini + 1], [pmin,self.dose_data[pmini + 1]]],  # negative peak
-      # ]
-
       self.inflection_points = [
-         # first derivative
-         [
-            (self.pos_data[pmaxi] + self.pos_data[pmaxi + 1]) / 2.0,
-            [pmax, (self.dose_data[pmaxi] + self.dose_data[pmaxi + 1]) / 2.0]
-         ],
-         [
-            (self.pos_data[pmini] + self.pos_data[pmini + 1]) / 2.0,
-            [pmin, (self.dose_data[pmini] + self.dose_data[pmini + 1]) / 2.0]
-         ],
-         # second derivative (only on first half)
-         [
-            self.pos_data[spmaxi], [spmax, self.dose_data[spmaxi]]
-         ],
-         [
-            self.pos_data[spmini], [spmin, self.dose_data[spmini]]
-         ]
+         [self.pos_data[pmaxi], [pmax, self.dose_data[pmaxi]]], # positive peak
+         [self.pos_data[pmini], [pmin, self.dose_data[pmini]]],  # negative peak
+         [self.pos_data[spmaxi], [spmax, self.dose_data[spmaxi]]],
+         [self.pos_data[spmini], [spmin, self.dose_data[spmini]]],
       ]
+
+      # self.inflection_points = [
+      #    # first derivative
+      #    [
+      #       (self.pos_data[pmaxi] + self.pos_data[pmaxi + 1]) / 2.0,
+      #       [pmax, (self.dose_data[pmaxi] + self.dose_data[pmaxi + 1]) / 2.0]
+      #    ],
+      #    [
+      #       (self.pos_data[pmini] + self.pos_data[pmini + 1]) / 2.0,
+      #       [pmin, (self.dose_data[pmini] + self.dose_data[pmini + 1]) / 2.0]
+      #    ],
+      #    # second derivative (only on first half)
+      #    [
+      #       self.pos_data[spmaxi], [spmax, self.dose_data[spmaxi]]
+      #    ],
+      #    [
+      #       self.pos_data[spmini], [spmin, self.dose_data[spmini]]
+      #    ]
+      # ]
 
       # print(f"pos: {self.inflection_points[0][0] == -self.inflection_points[1][0]}, deriv: {self.inflection_points[0][1][0] == -self.inflection_points[1][1][0]}, dose: {self.inflection_points[0][1][1] == self.inflection_points[1][1][1]}, filt: {pmaxi > intersections[0]},{pmini < intersections[1]}")
 
