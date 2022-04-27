@@ -14,18 +14,23 @@ def extract_column(data:list, n):
 # returns the mobile mean curve of the dataset given
 def moving_average(data:list, N:int):
     offset = math.floor(N/2)
-    averages = data[:offset]
+    averages = data[0:offset] # 0 -> 3   [0,1,2,3]
     window_average = 0
     i = offset
     while i < len(data) - offset:
-        window = data[i - offset : i + offset]
+        # take into account current point, which is at (i - offset) + 1  =>  therefore last point is i + offset + 1
+        window = data[i - offset : i + offset + 1]
         window_average = sum(window) / N
         averages.append(window_average)
+
+        # print(f"{i}: {window}, {window_average}")
+
         if i == offset: # first iteration
             # fill head of dataset with first modified value
-            for n in range(offset):
+            for n in range(0, offset, 1): # 0 -> offset (1)
                 averages[n] = window_average
-        if i == len(data) - offset - 1: # last iteration
+
+        if i == len(data) - 1 - offset: # last iteration
             # fill tail with last modified value
             averages.extend([window_average for _ in range(offset)])
         i += 1
