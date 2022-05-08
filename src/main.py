@@ -9,7 +9,12 @@ def main():
    # c = Cacher("./res/", "./output tests/both_derivatives_filtered/", TestSettings(5, moving_average, [3]))
    # c = Cacher("./res/", "./output tests/all_filtered/", TestSettings(6, moving_average, [3]))
 
-   c = Cacher("./res/", "./out/sanpietro 0.1mm - MA 3 - dose_filtered/", TestSettings(1, "moving_average"))
+   # ProcessingSettings(
+   #    - list of datasets to apply the filter one
+   #    - name of the filter
+   # )
+
+   c = Cacher("./res/", "./out/sanpietro 0.1mm - MA 9 - dose_filtered/", ProcessingSettings([0], ["moving_average"]))
 
 if __name__ == '__main__':
    main()

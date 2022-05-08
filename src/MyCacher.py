@@ -9,13 +9,13 @@ from MyUtils import *
 
 
 
-class TestSettings:
-   test_preset: int
-   test_method: str
+class ProcessingSettings:
+   datasets: list
+   filters:list
 
-   def __init__(self, tp , tm):
-      self.test_preset = tp
-      self.test_method = tm
+   def __init__(self, _datasets:list, _filters:str):
+      self.datasets = _datasets
+      self.filters = _filters
 
 
 # --- Scan ---
@@ -29,37 +29,36 @@ class Scan:
    dose_data: list
 
    # calculated data
-   derivative: list
+   first_derivative: list
    second_derivative: list
+   third_derivative: list
    inflection_points: list
 
    # useful data
    profile_out_dir: str
 
    # test driven stuff babyyy
-   test_settings: TestSettings
-   test_presets: list
+   processing_settings: ProcessingSettings
+   datasets: list
 
-   def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir, _test_settings: TestSettings):
+   def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir, _processing_settings: ProcessingSettings):
       self.scan_num = _scan_num
       self.fields = {}
       self.pos_data = []
       self.dose_data = []
-      self.derivative = []
+      self.first_derivative = []
       self.second_derivative = []
+      self.third_derivative = []
       self.inflection_points = []
       self.profile_out_dir = _profile_out_dir
 
-      self.test_presets = [
-         self.not_filtered_processing,
-         self.dose_filtered_processing,
-         self.first_derivative_filtered_processing,
-         self.dose_first_derivative_filtered_processing,
-         self.second_derivative_filtered_processing,
-         self.both_derivatives_filtered_processing,
-         self.all_filtered_processing
+      self.datasets = [
+         self.dose_data,
+         self.first_derivative,
+         self.second_derivative,
+         self.third_derivative
       ]
-      self.test_settings = _test_settings
+      self.processing_settings = _processing_settings
 
       # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
       # once it is encountered, collect floats
@@ -88,73 +87,54 @@ class Scan:
 
       self.produce_results()
 
+
    def check_symmetry(self):
       at_zero = self.pos_data.index(0.0)
       for i in range(0, len(self.pos_data)):
          if self.dose_data[i] != self.dose_data[(len(self.dose_data) - 1) - i]:
             print(f"pos: {self.pos_data[i]} - dose: {self.dose_data[i]} : {self.dose_data[-i]}")
 
-   def apply_filter(self, _data:list):
-      if self.test_settings.test_method == "moving_average":
-         return moving_average(_data, 3)
-      elif self.test_settings.test_method == "median_filter":
-         # data_average = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
-         # intersections = find_intersections(self.dose_data, data_average)
-         return median_filter(_data, 3)
-      elif self.test_settings.test_method == "spline":
-         tck = splrep(self.pos_data[:-1], _data)
-         return splev(self.pos_data[:-1], tck).tolist()
+
+   def apply_filter(self, dataset_index):
+      if dataset_index in self.processing_settings.datasets:
+         index_of_filter_name = self.processing_settings.datasets.index(dataset_index)
+         if self.processing_settings.filters[index_of_filter_name] == "moving_average":
+            return moving_average(self.datasets[dataset_index], 3)
+         elif self.processing_settings.filters[index_of_filter_name] == "median_filter":
+            return median_filter(dataset_index, 3)
+         elif self.processing_settings.filters[index_of_filter_name] == "spline":
+            tck = splrep(self.pos_data[:-1], dataset_index,)
+            return splev(self.pos_data[:-1], tck).tolist()
+         else:
+            raise Exception("not yet implemented")
       else:
-         raise Exception("Lol not yet")
+         return self.datasets[dataset_index]
 
 
-   def not_filtered_processing(self):
-      self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
-      
+   # eww... and it's not the emacs' browser
+   def process_data(self):
+      # dose data
+      self.dose_data = self.apply_filter(self.datasets.index(self.dose_data))
+      self.datasets[0] = self.first_derivative
 
-   def dose_filtered_processing(self):
-      self.dose_data_raw = self.dose_data[:]
-      self.dose_data = self.apply_filter(self.dose_data)
-      self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
+      # derivatives
+      # first derivative and filter
+      self.first_derivative = calc_derivative(self.pos_data, self.dose_data)
+      self.datasets[1] = self.first_derivative
+      self.first_derivative = self.apply_filter(self.datasets.index(self.first_derivative))
+      # second derivative and filter (and correction)
+      self.second_derivative = calc_derivative(self.pos_data, self.first_derivative)
+      self.datasets[2] = self.second_derivative
+      self.second_derivative = self.apply_filter(self.datasets.index(self.second_derivative))
       ranges = [[0,10], [len(self.second_derivative) - 10, len(self.second_derivative)]]
       self.second_derivative = median_filter(self.second_derivative, 3, ranges)
+      # third derivative
+      self.third_derivative = calc_derivative(self.pos_data, self.second_derivative)
+      self.datasets[3] = self.third_derivative
+      self.third_derivative = self.apply_filter(self.datasets.index(self.third_derivative))
 
-
-   def first_derivative_filtered_processing(self):
-      self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.apply_filter(self.derivative)
-      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
-
-
-   def dose_first_derivative_filtered_processing(self):
-      self.dose_data = self.apply_filter(self.dose_data)
-      self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.apply_filter(self.derivative)
-      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
-
-
-   def second_derivative_filtered_processing(self):
-      self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
-      self.second_derivative = self.apply_filter(self.second_derivative)
-
-
-   def both_derivatives_filtered_processing(self):
-      self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.apply_filter(self.derivative)
-      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
-      self.second_derivative = self.apply_filter(self.second_derivative)
-
-
-
-   def all_filtered_processing(self):
-      self.dose_data = self.apply_filter(self.dose_data)
-      self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.derivative = self.apply_filter(self.derivative)
-      self.second_derivative = calc_derivative(self.pos_data, self.derivative)
-      self.second_derivative = self.apply_filter(self.second_derivative)
+      # other data
+      # -
 
 
    # Calculate derivative, than apply median filter to portions of the derivative to
@@ -166,21 +146,13 @@ class Scan:
    # To find the positions take the index of the peak in the derivative, and use it as index for
    # both derivative function and original data
    def find_inflection_points(self):
-
-      # calculate and locally filter the derivative
-      # self.dose_data = median_filter(self.dose_data, 5)
-      # self.derivative = calc_derivative(self.pos_data, self.dose_data)
-      # self.derivative = median_filter(self.derivative, 5, [[0,intersections[0]], [intersections[1], len(self.derivative)]])
-      # self.derivative = median_filter(self.derivative, 5)
-      # self.second_derivative = calc_derivative(self.pos_data[:-1], self.derivative)
-      # self.second_derivative = median_filter(self.second_derivative, 5)
-      self.test_presets[self.test_settings.test_preset]()
+      self.process_data()
 
       # find peaks/valleys and their positions
-      pmax = max(self.derivative)
-      pmaxi = self.derivative.index(pmax)
-      pmin = min(self.derivative)
-      pmini = self.derivative.index(pmin)
+      pmax = max(self.first_derivative)
+      pmaxi = self.first_derivative.index(pmax)
+      pmin = min(self.first_derivative)
+      pmini = self.first_derivative.index(pmin)
 
       spmax = max(self.second_derivative[:len(self.second_derivative) // 2])
       spmaxi = self.second_derivative.index(spmax)
@@ -231,7 +203,7 @@ class Scan:
       # build axis for plot:
       # x: positions
       # y: data, derivative, mean, inflection points
-      y = self.derivative
+      y = self.first_derivative
       y2 = self.second_derivative
       y3 = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
 
@@ -242,8 +214,9 @@ class Scan:
          [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0], self.inflection_points[4][0], self.inflection_points[5][0]],
          [self.inflection_points[0][1][1], self.inflection_points[1][1][1], self.inflection_points[2][1][1], self.inflection_points[3][1][1], self.inflection_points[4][1][1], self.inflection_points[5][1][1]],
          c = "black")
-      ax[1].plot(self.pos_data, self.derivative, c = "red")
+      ax[1].plot(self.pos_data, self.first_derivative, c = "red")
       ax[1].plot(self.pos_data, self.second_derivative, c = "green")
+      ax[1].plot(self.pos_data, self.third_derivative, c = "purple")
       ax[1].scatter(
          [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0], self.inflection_points[4][0], self.inflection_points[5][0]],
          [self.inflection_points[0][1][0], self.inflection_points[1][1][0], self.inflection_points[2][1][0], self.inflection_points[3][1][0], self.inflection_points[4][1][0], self.inflection_points[5][1][0]],
@@ -270,7 +243,7 @@ class Profile:
    scans: list
    iso_field_size: str
 
-   def __init__(self, file_path: str, out_dir: str, _test_settings: TestSettings):
+   def __init__(self, file_path: str, out_dir: str, _processing_settings: ProcessingSettings):
       self.name = file_path.split("/")[-1].replace(".mcc", "")
       self.iso_field_size = self.name.split(" ")[3]
       self.scans = []
@@ -304,7 +277,7 @@ class Profile:
             else:
                end_region_index = raw_data.index(f"\tEND_SCAN {scan_num}")
 
-            self.scans.append(Scan(scan_num, raw_data, i, end_region_index, profile_out_dir, _test_settings))
+            self.scans.append(Scan(scan_num, raw_data, i, end_region_index, profile_out_dir, _processing_settings))
 
             # skip content in between
             i = end_region_index
@@ -323,7 +296,7 @@ class Cacher:
    # [!] filter faulty scans and log them to a file
    faulty_scans_list: list
 
-   def __init__(self, _res_dir: str, _out_dir: str, _test_settings):
+   def __init__(self, _res_dir: str, _out_dir: str, _processing_settings):
       self.profiles = []
       self.res_dir = _res_dir
       self.out_dir = _out_dir
@@ -341,7 +314,7 @@ class Cacher:
 
       # create profile out of each file in filelist
       for f in filelist:
-         self.profiles.append(Profile(f, self.out_dir, _test_settings))
+         self.profiles.append(Profile(f, self.out_dir, _processing_settings))
 
       self.output_tables()
       
