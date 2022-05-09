@@ -12,10 +12,12 @@ from MyUtils import *
 class ProcessingSettings:
    datasets: list
    filters:list
+   args:list
 
-   def __init__(self, _datasets:list, _filters:str):
+   def __init__(self, _datasets:list, _filters:str, _args):
       self.datasets = _datasets
       self.filters = _filters
+      self.args = _args
 
 
 # --- Scan ---
@@ -82,9 +84,6 @@ class Scan:
             break
          i += 1
 
-      # self.check_symmetry()
-      # exit()
-
       self.produce_results()
 
 
@@ -99,9 +98,9 @@ class Scan:
       if dataset_index in self.processing_settings.datasets:
          index_of_filter_name = self.processing_settings.datasets.index(dataset_index)
          if self.processing_settings.filters[index_of_filter_name] == "moving_average":
-            return moving_average(self.datasets[dataset_index], 3)
+            return moving_average(self.datasets[dataset_index], self.processing_settings.args[index_of_filter_name])
          elif self.processing_settings.filters[index_of_filter_name] == "median_filter":
-            return median_filter(dataset_index, 3)
+            return median_filter(dataset_index, self.processing_settings.args[index_of_filter_name])
          elif self.processing_settings.filters[index_of_filter_name] == "spline":
             tck = splrep(self.pos_data[:-1], dataset_index,)
             return splev(self.pos_data[:-1], tck).tolist()
@@ -149,48 +148,66 @@ class Scan:
       self.process_data()
 
       # find peaks/valleys and their positions
-      pmax = max(self.first_derivative)
-      pmaxi = self.first_derivative.index(pmax)
-      pmin = min(self.first_derivative)
-      pmini = self.first_derivative.index(pmin)
+      # first derivative d1
+      d1max = max(self.first_derivative)
+      d1maxi = self.first_derivative.index(d1max)
+      d1min = min(self.first_derivative)
+      d1mini = self.first_derivative.index(d1min)
 
-      spmax = max(self.second_derivative[:len(self.second_derivative) // 2])
-      spmaxi = self.second_derivative.index(spmax)
-      spmin = min(self.second_derivative[:len(self.second_derivative) // 2])
-      spmini = self.second_derivative.index(spmin)
-      spmax2 = max(self.second_derivative[len(self.second_derivative) // 2:])
-      spmaxi2 = self.second_derivative.index(spmax)
-      spmin2 = min(self.second_derivative[len(self.second_derivative) // 2:])
-      spmini2 = self.second_derivative.index(spmin)
+      # second derivative d2
+      # 1
+      d2max = max(self.second_derivative[:len(self.second_derivative) // 2])
+      d2maxi = self.second_derivative.index(d2max)
+      d2min = min(self.second_derivative[:len(self.second_derivative) // 2])
+      d2mini = self.second_derivative.index(d2min)
+      # 2
+      d2max2 = max(self.second_derivative[len(self.second_derivative) // 2:])
+      d2maxi2 = self.second_derivative.index(d2max2)
+      d2min2 = min(self.second_derivative[len(self.second_derivative) // 2:])
+      d2mini2 = self.second_derivative.index(d2min2)
+
+      # third derivative d3
+      # 1
+      d3max = max(self.third_derivative[:d1maxi])
+      d3maxi = self.third_derivative.index(d3max)
+      d3min = min(self.third_derivative[:d1maxi])
+      d3mini = self.third_derivative.index(d3min)
+      # 2
+      d3max2 = max(self.third_derivative[d1maxi : len(self.third_derivative) // 2])
+      d3maxi2 = self.third_derivative.index(d3max2)
+      d3min2 = min(self.third_derivative[d1maxi : len(self.third_derivative) // 2])
+      d3mini2 = self.third_derivative.index(d3min2)
+      # 3
+      d3max3 = max(self.third_derivative[d1mini:])
+      d3maxi3 = self.third_derivative.index(d3max3)
+      d3min3 = min(self.third_derivative[d1mini:])
+      d3mini3 = self.third_derivative.index(d3min3)
+      # 4
+      d3max4 = max(self.third_derivative[len(self.third_derivative) // 2 : d1mini])
+      d3maxi4 = self.third_derivative.index(d3max4)
+      d3min4 = min(self.third_derivative[len(self.third_derivative) // 2 : d1mini])
+      d3mini4 = self.third_derivative.index(d3min4)
 
       # save inflection points data: [pos, [derivative_value, data_value]]
       self.inflection_points = [
-         [ (self.pos_data[pmaxi] + self.pos_data[pmaxi + 1]) / 2.0, [pmax, (self.dose_data[pmaxi] + self.dose_data[pmaxi+1]) / 2.0] ],
-         [ (self.pos_data[pmini] + self.pos_data[pmini + 1]) / 2.0, [pmin, (self.dose_data[pmini] + self.dose_data[pmini+1]) / 2.0] ],
-         [ self.pos_data[spmaxi], [spmax, self.dose_data[spmaxi]] ],
-         [ self.pos_data[spmini], [spmin, self.dose_data[spmini]] ],
-         [ self.pos_data[spmaxi2], [spmax2, self.dose_data[spmaxi2]] ],
-         [ self.pos_data[spmini2], [spmin2, self.dose_data[spmini2]] ],
+         # d1
+         [ (self.pos_data[d1maxi] + self.pos_data[d1maxi + 1]) / 2.0, [d1max, (self.dose_data[d1maxi] + self.dose_data[d1maxi+1]) / 2.0] ],
+         [ (self.pos_data[d1mini] + self.pos_data[d1mini + 1]) / 2.0, [d1min, (self.dose_data[d1mini] + self.dose_data[d1mini+1]) / 2.0] ],
+         # d2
+         [ self.pos_data[d2maxi], [d2max, self.dose_data[d2maxi]] ],
+         [ self.pos_data[d2mini], [d2min, self.dose_data[d2mini]] ],
+         # [ self.pos_data[d2maxi2], [d2max2, self.dose_data[d2maxi2]] ],
+         # [ self.pos_data[d2mini2], [d2min2, self.dose_data[d2mini2]] ],
+         # d3
+         [ self.pos_data[d3maxi], [d3max, self.dose_data[d3maxi]] ],
+         [ self.pos_data[d3mini], [d3min, self.dose_data[d3mini]] ],
+         [ self.pos_data[d3maxi2], [d3max2, self.dose_data[d3maxi2]] ],
+         [ self.pos_data[d3mini2], [d3min2, self.dose_data[d3mini2]] ],
+         # [ self.pos_data[d3maxi3], [d3max3, self.dose_data[d3maxi3]] ],
+         # [ self.pos_data[d3mini3], [d3min3, self.dose_data[d3mini3]] ],
+         # [ self.pos_data[d3maxi4], [d3max4, self.dose_data[d3maxi4]] ],
+         # [ self.pos_data[d3mini4], [d3min4, self.dose_data[d3mini4]] ],
       ]
-
-      # self.inflection_points = [
-      #    # first derivative
-      #    [
-      #       (self.pos_data[pmaxi] + self.pos_data[pmaxi + 1]) / 2.0,
-      #       [pmax, (self.dose_data[pmaxi] + self.dose_data[pmaxi + 1]) / 2.0]
-      #    ],
-      #    [
-      #       (self.pos_data[pmini] + self.pos_data[pmini + 1]) / 2.0,
-      #       [pmin, (self.dose_data[pmini] + self.dose_data[pmini + 1]) / 2.0]
-      #    ],
-      #    # second derivative (only on first half)
-      #    [
-      #       self.pos_data[spmaxi], [spmax, self.dose_data[spmaxi]]
-      #    ],
-      #    [
-      #       self.pos_data[spmini], [spmin, self.dose_data[spmini]]
-      #    ]
-      # ]
 
       # print(f"pos: {self.inflection_points[0][0] == -self.inflection_points[1][0]}, deriv: {self.inflection_points[0][1][0] == -self.inflection_points[1][1][0]}, dose: {self.inflection_points[0][1][1] == self.inflection_points[1][1][1]}, filt: {pmaxi > intersections[0]},{pmini < intersections[1]}")
 
@@ -200,27 +217,29 @@ class Scan:
 
 
    def output_plot(self):
-      # build axis for plot:
-      # x: positions
-      # y: data, derivative, mean, inflection points
-      y = self.first_derivative
-      y2 = self.second_derivative
-      y3 = [np.mean(self.dose_data) / 3.0 for _ in range(len(self.dose_data))]
+      marker_size = 7
+
+      scatter_points_x = []
+      scatter_points_y1 = []
+      scatter_points_y2 = []
+      for i in range(len(self.inflection_points)):
+         scatter_points_x.append(self.inflection_points[i][0])
+         scatter_points_y1.append(self.inflection_points[i][1][1])
+         scatter_points_y2.append(self.inflection_points[i][1][0])
 
       # plot components
       fig, ax = plt.subplots(2, 1)
       ax[0].plot(self.pos_data, self.dose_data, c = "blue")
-      ax[0].scatter(
-         [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0], self.inflection_points[4][0], self.inflection_points[5][0]],
-         [self.inflection_points[0][1][1], self.inflection_points[1][1][1], self.inflection_points[2][1][1], self.inflection_points[3][1][1], self.inflection_points[4][1][1], self.inflection_points[5][1][1]],
-         c = "black")
+      ax[0].scatter(scatter_points_x, scatter_points_y1, c = "black", s = marker_size, zorder = 9)
+      ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker = "+", c = "cyan", zorder = 10)
+      ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker = "+", c = "cyan", zorder = 10)
       ax[1].plot(self.pos_data, self.first_derivative, c = "red")
       ax[1].plot(self.pos_data, self.second_derivative, c = "green")
       ax[1].plot(self.pos_data, self.third_derivative, c = "purple")
-      ax[1].scatter(
-         [self.inflection_points[0][0], self.inflection_points[1][0], self.inflection_points[2][0], self.inflection_points[3][0], self.inflection_points[4][0], self.inflection_points[5][0]],
-         [self.inflection_points[0][1][0], self.inflection_points[1][1][0], self.inflection_points[2][1][0], self.inflection_points[3][1][0], self.inflection_points[4][1][0], self.inflection_points[5][1][0]],
-         c = "black")
+      ax[1].scatter(scatter_points_x, scatter_points_y2, c = "black", s = marker_size, zorder = 9)
+      ax[1].scatter(self.inflection_points[0][0], self.inflection_points[0][1][0], marker = "+", c = "cyan", zorder = 10)
+      ax[1].scatter(self.inflection_points[1][0], self.inflection_points[1][1][0], marker = "+", c = "cyan", zorder = 10)
+
       # save plot in the right profile subdirectory
       plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
       plt.close(fig)
@@ -320,36 +339,60 @@ class Cacher:
       
 
 
-   # [!] transpose table to work with singular profiles rather than scans across profiles
-   # [!] order profiles' scans and check for missing ones
    def create_table(self, profiles: list, measurement_depths: list):
+      # create table's first (transposed first column)
       table = [["depth"] + [str(m / 10.0) for m in measurement_depths]]
+      # for each profile
       for p in range(len(profiles)):
+         # prepare the table's row
          temp_table_row = [profiles[p].name.split(" ")[3]]
+         # for each profile's scan
          for s in range(len(measurement_depths)):
+            # some usefult values to remove noise in the code
             temp_profile_scans = profiles[p].scans
             dose_at_zero_index = temp_profile_scans[s].pos_data.index(0.0)
             dose_at_zero = temp_profile_scans[s].dose_data[dose_at_zero_index]
+
+            # if this is the right measurement
             if float(temp_profile_scans[s].fields["SCAN_DEPTH"]) == measurement_depths[s]:
-               temp_table_row.append([
-                  round(temp_profile_scans[s].inflection_points[0][0] / 10.0, 3),
-                  round(temp_profile_scans[s].inflection_points[1][0] / 10.0, 3),
-                  round(temp_profile_scans[s].inflection_points[0][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[1][1][1], 3),
-                  round(dose_at_zero, 3),
-                  round(temp_profile_scans[s].inflection_points[2][0] / 10.0, 3),
-                  round(temp_profile_scans[s].inflection_points[3][0] / 10.0, 3),
-                  round(temp_profile_scans[s].inflection_points[2][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[3][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[4][0] / 10.0, 3),
-                  round(temp_profile_scans[s].inflection_points[5][0] / 10.0, 3),
-                  round(temp_profile_scans[s].inflection_points[4][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[5][1][1], 3),
-               ])
+
+               # fill the cell with dose_at_zero + inflection points data
+               column_content = [dose_at_zero]
+               for i in range(0, len(temp_profile_scans[s].inflection_points) - 1, 2):
+                  column_content.append(round(temp_profile_scans[s].inflection_points[i][0] / 10.0, 3))
+                  column_content.append(round(temp_profile_scans[s].inflection_points[i+1][0] / 10.0, 3))
+                  column_content.append(round(temp_profile_scans[s].inflection_points[i][1][1], 3))
+                  column_content.append(round(temp_profile_scans[s].inflection_points[i+1][1][1], 3))
+
+               # append the cell to the row
+               temp_table_row.append(column_content)
+
+               # temp_table_row.append([
+               #    # d1 positions, d1 peak and valley
+               #    round(temp_profile_scans[s].inflection_points[0][0] / 10.0, 3),
+               #    round(temp_profile_scans[s].inflection_points[1][0] / 10.0, 3),
+               #    round(temp_profile_scans[s].inflection_points[0][1][1], 3),
+               #    round(temp_profile_scans[s].inflection_points[1][1][1], 3),
+               #    # dose at zero
+               #    round(dose_at_zero, 3),
+               #    # d2 positions, d2 peak and valley
+               #    round(temp_profile_scans[s].inflection_points[2][0] / 10.0, 3),
+               #    round(temp_profile_scans[s].inflection_points[3][0] / 10.0, 3),
+               #    round(temp_profile_scans[s].inflection_points[2][1][1], 3),
+               #    round(temp_profile_scans[s].inflection_points[3][1][1], 3),
+               #    # d3 positions, d3 peak and valley
+               #    round(temp_profile_scans[s].inflection_points[4][0] / 10.0, 3),
+               #    round(temp_profile_scans[s].inflection_points[5][0] / 10.0, 3),
+               #    round(temp_profile_scans[s].inflection_points[4][1][1], 3),
+               #    round(temp_profile_scans[s].inflection_points[5][1][1], 3),
+               # ])
+
+            # if it's not the right scan
             else:
                temp_table_row.append("/")
                # insert null profile to offset right profile
                temp_profile_scans.insert(s, None)
+
          table.append(temp_table_row)
       return table
 
@@ -374,12 +417,13 @@ class Cacher:
          table = self.create_table(v, measurement_depths)
          table = transpose_table(table)
          with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
-            f.write("deriv_1, deriv_2, dose_1, dose_2, dose_0, second_deriv_1, second_deriv_2, second_dose_1, second_dose_2\n\n")
+            tab_expansion = 150
+            f.write("pos_d1_1, pos_d1_2, dose_d1_1, dose_d2_2, pos_d2_1, pos_d2_2, pos_d3_1, pos_d3_2, pos_d3_3, pos_d3_4, dose_0\n\n")
             for r in table:
                for c in r:
                   if isinstance(c, list):
                      str_list = f"{', '.join(map(str,c))}\t"
-                     f.write(str_list.expandtabs(110))
+                     f.write(str_list.expandtabs(tab_expansion))
                   else:
-                     f.write(f"{c}\t".expandtabs(110))
+                     f.write(f"{c}\t".expandtabs(tab_expansion))
                f.write("\n")
