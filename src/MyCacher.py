@@ -35,6 +35,7 @@ class Scan:
    second_derivative: list
    third_derivative: list
    inflection_points: list
+   lt25mm: bool
 
    # useful data
    profile_out_dir: str
@@ -52,6 +53,7 @@ class Scan:
       self.second_derivative = []
       self.third_derivative = []
       self.inflection_points = []
+      self.lt25mm = False
       self.profile_out_dir = _profile_out_dir
 
       self.datasets = [
@@ -167,26 +169,29 @@ class Scan:
       d2mini2 = self.second_derivative.index(d2min2)
 
       # third derivative d3
-      # 1
+      # max
       d3max = max(self.third_derivative[:d1maxi])
       d3maxi = self.third_derivative.index(d3max)
-      d3min = min(self.third_derivative[:d1maxi])
-      d3mini = self.third_derivative.index(d3min)
-      # 2
       d3max2 = max(self.third_derivative[d1maxi : len(self.third_derivative) // 2])
       d3maxi2 = self.third_derivative.index(d3max2)
-      d3min2 = min(self.third_derivative[d1maxi : len(self.third_derivative) // 2])
-      d3mini2 = self.third_derivative.index(d3min2)
-      # 3
-      d3max3 = max(self.third_derivative[d1mini:])
+      d3max3 = max(self.third_derivative[len(self.third_derivative) // 2 :])
       d3maxi3 = self.third_derivative.index(d3max3)
+      # min
+      d3min = min(self.third_derivative[:len(self.third_derivative) // 2])
+      d3mini = self.third_derivative.index(d3min)
+      d3min2 = min(self.third_derivative[len(self.third_derivative) // 2 : d1mini])
+      d3mini2 = self.third_derivative.index(d3min2)
       d3min3 = min(self.third_derivative[d1mini:])
       d3mini3 = self.third_derivative.index(d3min3)
-      # 4
-      d3max4 = max(self.third_derivative[len(self.third_derivative) // 2 : d1mini])
-      d3maxi4 = self.third_derivative.index(d3max4)
-      d3min4 = min(self.third_derivative[len(self.third_derivative) // 2 : d1mini])
-      d3mini4 = self.third_derivative.index(d3min4)
+
+      # dose(pos(d1max) - 30)
+      dose_offset_point_data = [0, [0,0]]
+      position_offset = 25.0
+      try:
+         dose_offset_point_data = [ self.pos_data[d1maxi] - position_offset, [0, self.dose_data[self.pos_data.index(self.pos_data[d1maxi] - position_offset)]] ]
+      except:
+         dose_offset_point_data = [ self.pos_data[0], [0, self.dose_data[0]] ]
+         self.lt25mm = True
 
       # save inflection points data: [pos, [derivative_value, data_value]]
       self.inflection_points = [
@@ -196,17 +201,17 @@ class Scan:
          # d2
          [ self.pos_data[d2maxi], [d2max, self.dose_data[d2maxi]] ],
          [ self.pos_data[d2mini], [d2min, self.dose_data[d2mini]] ],
-         # [ self.pos_data[d2maxi2], [d2max2, self.dose_data[d2maxi2]] ],
-         # [ self.pos_data[d2mini2], [d2min2, self.dose_data[d2mini2]] ],
+         [ self.pos_data[d2mini2], [d2min2, self.dose_data[d2mini2]] ],
+         [ self.pos_data[d2maxi2], [d2max2, self.dose_data[d2maxi2]] ],
          # d3
          [ self.pos_data[d3maxi], [d3max, self.dose_data[d3maxi]] ],
          [ self.pos_data[d3mini], [d3min, self.dose_data[d3mini]] ],
          [ self.pos_data[d3maxi2], [d3max2, self.dose_data[d3maxi2]] ],
          [ self.pos_data[d3mini2], [d3min2, self.dose_data[d3mini2]] ],
-         # [ self.pos_data[d3maxi3], [d3max3, self.dose_data[d3maxi3]] ],
-         # [ self.pos_data[d3mini3], [d3min3, self.dose_data[d3mini3]] ],
-         # [ self.pos_data[d3maxi4], [d3max4, self.dose_data[d3maxi4]] ],
-         # [ self.pos_data[d3mini4], [d3min4, self.dose_data[d3mini4]] ],
+         [ self.pos_data[d3maxi3], [d3max3, self.dose_data[d3maxi3]] ],
+         [ self.pos_data[d3mini3], [d3min3, self.dose_data[d3mini3]] ],
+         # additional points
+         dose_offset_point_data,
       ]
 
       # print(f"pos: {self.inflection_points[0][0] == -self.inflection_points[1][0]}, deriv: {self.inflection_points[0][1][0] == -self.inflection_points[1][1][0]}, dose: {self.inflection_points[0][1][1] == self.inflection_points[1][1][1]}, filt: {pmaxi > intersections[0]},{pmini < intersections[1]}")
@@ -229,10 +234,12 @@ class Scan:
 
       # plot components
       fig, ax = plt.subplots(2, 1)
+
       ax[0].plot(self.pos_data, self.dose_data, c = "blue")
       ax[0].scatter(scatter_points_x, scatter_points_y1, c = "black", s = marker_size, zorder = 9)
       ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker = "+", c = "cyan", zorder = 10)
       ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker = "+", c = "cyan", zorder = 10)
+
       ax[1].plot(self.pos_data, self.first_derivative, c = "red")
       ax[1].plot(self.pos_data, self.second_derivative, c = "green")
       ax[1].plot(self.pos_data, self.third_derivative, c = "purple")
@@ -357,35 +364,53 @@ class Cacher:
             if float(temp_profile_scans[s].fields["SCAN_DEPTH"]) == measurement_depths[s]:
 
                # fill the cell with dose_at_zero + inflection points data
-               column_content = [dose_at_zero]
-               for i in range(0, len(temp_profile_scans[s].inflection_points) - 1, 2):
-                  column_content.append(round(temp_profile_scans[s].inflection_points[i][0] / 10.0, 3))
-                  column_content.append(round(temp_profile_scans[s].inflection_points[i+1][0] / 10.0, 3))
-                  column_content.append(round(temp_profile_scans[s].inflection_points[i][1][1], 3))
-                  column_content.append(round(temp_profile_scans[s].inflection_points[i+1][1][1], 3))
+               column_content = [round(dose_at_zero, 3)]
+               #for i in range(0, len(temp_profile_scans[s].inflection_points) - 1, 2):
+               #   # d1 positions and doses
+               #   column_content.append(round(temp_profile_scans[s].inflection_points[i][0] / 10.0, 3))
+               #   column_content.append(round(temp_profile_scans[s].inflection_points[i+1][0] / 10.0, 3))
+               #   column_content.append(round(temp_profile_scans[s].inflection_points[i][1][1], 3))
+               #   column_content.append(round(temp_profile_scans[s].inflection_points[i+1][1][1], 3))
+
+               temp_table_row.append([
+                  round(dose_at_zero, 3),
+                  # d1: max
+                  round(temp_profile_scans[s].inflection_points[0][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[0][1][1]  / 10.0, 3),
+                  # d1: min
+                  round(temp_profile_scans[s].inflection_points[1][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[1][1][1]  / 10.0, 3),
+                  # d2: max1, min1
+                  round(temp_profile_scans[s].inflection_points[2][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[3][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[2][1][1]  / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[3][1][1]  / 10.0, 3),
+                  # d2: min2, max2
+                  round(temp_profile_scans[s].inflection_points[4][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[5][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[4][1][1]  / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[5][1][1]  / 10.0, 3),
+                  # d3: max1, min1, max2
+                  round(temp_profile_scans[s].inflection_points[6][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[7][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[8][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[6][1][1]  / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[7][1][1]  / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[8][1][1]  / 10.0, 3),
+                  # d3: min2, max3, min3
+                  round(temp_profile_scans[s].inflection_points[9][0]     / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[10][0]    / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[11][0]    / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[9][1][1]  / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[10][1][1] / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[11][1][1] / 10.0, 3),
+                  # additional points
+                  round(temp_profile_scans[s].inflection_points[-1][1][1] / 10.0, 3),
+                  "lt25" if temp_profile_scans[s].lt25mm else "eq25",
+               ])
 
                # append the cell to the row
-               temp_table_row.append(column_content)
-
-               # temp_table_row.append([
-               #    # d1 positions, d1 peak and valley
-               #    round(temp_profile_scans[s].inflection_points[0][0] / 10.0, 3),
-               #    round(temp_profile_scans[s].inflection_points[1][0] / 10.0, 3),
-               #    round(temp_profile_scans[s].inflection_points[0][1][1], 3),
-               #    round(temp_profile_scans[s].inflection_points[1][1][1], 3),
-               #    # dose at zero
-               #    round(dose_at_zero, 3),
-               #    # d2 positions, d2 peak and valley
-               #    round(temp_profile_scans[s].inflection_points[2][0] / 10.0, 3),
-               #    round(temp_profile_scans[s].inflection_points[3][0] / 10.0, 3),
-               #    round(temp_profile_scans[s].inflection_points[2][1][1], 3),
-               #    round(temp_profile_scans[s].inflection_points[3][1][1], 3),
-               #    # d3 positions, d3 peak and valley
-               #    round(temp_profile_scans[s].inflection_points[4][0] / 10.0, 3),
-               #    round(temp_profile_scans[s].inflection_points[5][0] / 10.0, 3),
-               #    round(temp_profile_scans[s].inflection_points[4][1][1], 3),
-               #    round(temp_profile_scans[s].inflection_points[5][1][1], 3),
-               # ])
+               #temp_table_row.append(column_content)
 
             # if it's not the right scan
             else:
@@ -414,16 +439,27 @@ class Cacher:
                if not float(s.fields["SCAN_DEPTH"]) in measurement_depths:
                   measurement_depths.append(float(s.fields["SCAN_DEPTH"]))
          measurement_depths.sort()
+
+         # table stuff
          table = self.create_table(v, measurement_depths)
-         table = transpose_table(table)
+
+         tabextension = 12
          with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
-            tab_expansion = 150
-            f.write("pos_d1_1, pos_d1_2, dose_d1_1, dose_d2_2, pos_d2_1, pos_d2_2, pos_d3_1, pos_d3_2, pos_d3_3, pos_d3_4, dose_0\n\n")
-            for r in table:
-               for c in r:
-                  if isinstance(c, list):
-                     str_list = f"{', '.join(map(str,c))}\t"
-                     f.write(str_list.expandtabs(tab_expansion))
-                  else:
-                     f.write(f"{c}\t".expandtabs(tab_expansion))
-               f.write("\n")
+            f.write("FS\td_cm\tD(0)\tp1d1sx\tD(p1d1sx)\tp1d1dx\tD(p1d1dx)\tp1d2sx\tp2d2sx\tD(p1d2sx)\tD(p2d2sx)\tp1d2dx\tp2d2dx\tD(p1d2dx)\tD(p2d2dx)\tp1d3sx\tp2d3sx\tp3d3sx\tD(p1d3sx)\tD(p2d3sx)\tD(p3d3sx)\tp1d3dx\tp2d3dx\tp3d3dx\tD(p1d3dx)\tD(p2d3dx)\tD(p3d3dx)\tD(IP-25)\toff25\n".expandtabs(tabextension))
+            for row in range(1, len(table)):
+               for cell in range(1, len(table[row])):
+                  cell_data = '\t'.join([str(x) for x in table[row][cell]])
+                  f.write(f"{table[row][0]}\t{table[0][cell]}\t{cell_data}\n".expandtabs(tabextension))
+
+         # table = transpose_table(table)
+         # with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
+         #    tab_expansion = 450
+         #    f.write("pos_d1_1, pos_d1_2, dose_d1_1, dose_d2_2, pos_d2_1, pos_d2_2, pos_d3_1, pos_d3_2, pos_d3_3, pos_d3_4, dose_0\n\n")
+         #    for r in table:
+         #       for c in r:
+         #          if isinstance(c, list):
+         #             str_list = f"{', '.join(map(str,c))}\t"
+         #             f.write(str_list.expandtabs(tab_expansion))
+         #          else:
+         #             f.write(f"{c}\t".expandtabs(tab_expansion))
+         #       f.write("\n")
