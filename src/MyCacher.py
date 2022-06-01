@@ -158,31 +158,31 @@ class Scan:
 
       # second derivative d2
       # 1
-      d2max = max(self.second_derivative[:len(self.second_derivative) // 2])
-      d2maxi = self.second_derivative.index(d2max)
-      d2min = min(self.second_derivative[:len(self.second_derivative) // 2])
-      d2mini = self.second_derivative.index(d2min)
+      d2max = max(self.second_derivative[: len(self.second_derivative) // 2])
+      d2maxi = self.second_derivative.index(d2max, 0, len(self.second_derivative) // 2)
+      d2min = min(self.second_derivative[: len(self.second_derivative) // 2])
+      d2mini = self.second_derivative.index(d2min, 0, len(self.second_derivative) // 2)
       # 2
-      d2max2 = max(self.second_derivative[len(self.second_derivative) // 2:])
-      d2maxi2 = self.second_derivative.index(d2max2)
-      d2min2 = min(self.second_derivative[len(self.second_derivative) // 2:])
-      d2mini2 = self.second_derivative.index(d2min2)
+      d2max2 = max(self.second_derivative[len(self.second_derivative) // 2 :])
+      d2maxi2 = self.second_derivative.index(d2max2, len(self.second_derivative) // 2)
+      d2min2 = min(self.second_derivative[len(self.second_derivative) // 2 :])
+      d2mini2 = self.second_derivative.index(d2min2, len(self.second_derivative) // 2)
 
       # third derivative d3
       # max
       d3max = max(self.third_derivative[:d1maxi])
-      d3maxi = self.third_derivative.index(d3max)
+      d3maxi = self.third_derivative.index(d3max, 0, d1maxi)
       d3max2 = max(self.third_derivative[d1maxi : len(self.third_derivative) // 2])
-      d3maxi2 = self.third_derivative.index(d3max2)
+      d3maxi2 = self.third_derivative.index(d3max2, d1maxi, len(self.third_derivative) // 2)
       d3max3 = max(self.third_derivative[len(self.third_derivative) // 2 :])
-      d3maxi3 = self.third_derivative.index(d3max3)
+      d3maxi3 = self.third_derivative.index(d3max3, len(self.third_derivative) // 2)
       # min
       d3min = min(self.third_derivative[:len(self.third_derivative) // 2])
-      d3mini = self.third_derivative.index(d3min)
+      d3mini = self.third_derivative.index(d3min, 0, len(self.third_derivative) // 2)
       d3min2 = min(self.third_derivative[len(self.third_derivative) // 2 : d1mini])
-      d3mini2 = self.third_derivative.index(d3min2)
+      d3mini2 = self.third_derivative.index(d3min2, len(self.third_derivative) // 2, d1mini)
       d3min3 = min(self.third_derivative[d1mini:])
-      d3mini3 = self.third_derivative.index(d3min3)
+      d3mini3 = self.third_derivative.index(d3min3, d1mini)
 
       # dose(pos(d1max) - 30)
       dose_offset_point_data = [0, [0,0]]
