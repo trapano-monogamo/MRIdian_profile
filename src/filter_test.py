@@ -3,6 +3,7 @@ import math
 import statistics
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 from MyUtils import *
 
 def median_filter(data: list, N: int):
@@ -15,9 +16,12 @@ def median_filter(data: list, N: int):
 
 x = np.linspace(0, 50, 50)
 randdata = [randint(0,100) for _ in range(50)]
+fit_args, pcov = curve_fit(gauss, x, randdata)
+fit = [gauss(i, *fit_args) for i in x]
 
 plt.plot(x, randdata, c = "green")
 plt.plot(x[1:-1], median_filter(randdata, 3), c = "red")
 plt.plot(x, moving_average(randdata, 3), c = "blue")
+plt.plot(x, fit, c = "purple")
 plt.savefig("./src/filter_test_results.png")
 plt.show()

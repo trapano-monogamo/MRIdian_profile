@@ -105,3 +105,13 @@ def transpose_table(table):
             row.append(item[i])
         result.append(row)
     return result
+
+def gauss(x, amp, cen, wid):
+    return amp * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2))
+
+def gauss_first_derivative(x, amp, cen, wid):
+    return -amp * (x - cen) * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2.0)) / wid ** 2.0
+
+def gauss_second_derivative(x, amp, cen, wid):
+    return amp * (x ** 2.0 - 2 * cen * x - wid ** 2.0 + cen ** 2.0) * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2.0)) / wid ** 4.0
+

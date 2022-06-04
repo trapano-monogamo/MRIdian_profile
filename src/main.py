@@ -14,8 +14,8 @@ def main():
    #    - name of the filter
    # )
 
-   MA = 11
-   c = Cacher("./res/", f"./out/sanpietro 0.1mm - MA {MA} - dose_filtered/", ProcessingSettings([0], ["moving_average"], [MA]))
+   c = Cacher("./res/", f"./out/no MA - gauss d1 fit/")
+   #c = Cacher("./res/", f"./out/sanpietro 0.1mm - MA {MA} - dose_filtered/", ProcessingSettings([0], ["moving_average"], [MA]))
 
 if __name__ == '__main__':
    main()

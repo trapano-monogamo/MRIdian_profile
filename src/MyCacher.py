@@ -4,20 +4,11 @@ import os
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+from lmfit.models import GaussianModel
 from MyUtils import *
 
 
-
-
-class ProcessingSettings:
-   datasets: list
-   filters:list
-   args:list
-
-   def __init__(self, _datasets:list, _filters:str, _args):
-      self.datasets = _datasets
-      self.filters = _filters
-      self.args = _args
 
 
 # --- Scan ---
@@ -36,15 +27,13 @@ class Scan:
    third_derivative: list
    inflection_points: list
    lt25mm: bool
+   d1_left_fit_args: list
+   d1_right_fit_args: list
 
    # useful data
    profile_out_dir: str
 
-   # test driven stuff babyyy
-   processing_settings: ProcessingSettings
-   datasets: list
-
-   def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir, _processing_settings: ProcessingSettings):
+   def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir):
       self.scan_num = _scan_num
       self.fields = {}
       self.pos_data = []
@@ -54,15 +43,9 @@ class Scan:
       self.third_derivative = []
       self.inflection_points = []
       self.lt25mm = False
+      self.d1_left_fit_args: list
+      self.d1_right_fit_args: list
       self.profile_out_dir = _profile_out_dir
-
-      self.datasets = [
-         self.dose_data,
-         self.first_derivative,
-         self.second_derivative,
-         self.third_derivative
-      ]
-      self.processing_settings = _processing_settings
 
       # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
       # once it is encountered, collect floats
@@ -96,47 +79,44 @@ class Scan:
             print(f"pos: {self.pos_data[i]} - dose: {self.dose_data[i]} : {self.dose_data[-i]}")
 
 
-   def apply_filter(self, dataset_index):
-      if dataset_index in self.processing_settings.datasets:
-         index_of_filter_name = self.processing_settings.datasets.index(dataset_index)
-         if self.processing_settings.filters[index_of_filter_name] == "moving_average":
-            return moving_average(self.datasets[dataset_index], self.processing_settings.args[index_of_filter_name])
-         elif self.processing_settings.filters[index_of_filter_name] == "median_filter":
-            return median_filter(dataset_index, self.processing_settings.args[index_of_filter_name])
-         elif self.processing_settings.filters[index_of_filter_name] == "spline":
-            tck = splrep(self.pos_data[:-1], dataset_index,)
-            return splev(self.pos_data[:-1], tck).tolist()
-         else:
-            raise Exception("not yet implemented")
+   def apply_filter(self, data, filter_name, arg):
+      if filter_name == "moving_average":
+         return moving_average(data, arg)
+      elif filter_name == "median_filter":
+         return median_filter(data, arg)
+      # elif filter_name == "spline":
+      #    tck = splrep(self.pos_data[:-1], dataset_index,)
+      #    return splev(self.pos_data[:-1], tck).tolist()
       else:
-         return self.datasets[dataset_index]
+         raise Exception("not yet implemented")
 
 
-   # eww... and it's not the emacs' browser
+   # eww... and it's not emacs' browser
    def process_data(self):
-      # dose data
       self.orig_dose_data = self.dose_data[:]
-      self.dose_data = self.apply_filter(self.datasets.index(self.dose_data))
-      self.datasets[0] = self.first_derivative
 
-      # derivatives
-      # first derivative and filter
       self.first_derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.datasets[1] = self.first_derivative
-      self.first_derivative = self.apply_filter(self.datasets.index(self.first_derivative))
-      # second derivative and filter (and correction)
-      self.second_derivative = calc_derivative(self.pos_data, self.first_derivative)
-      self.datasets[2] = self.second_derivative
-      self.second_derivative = self.apply_filter(self.datasets.index(self.second_derivative))
-      ranges = [[0,10], [len(self.second_derivative) - 10, len(self.second_derivative)]]
-      self.second_derivative = median_filter(self.second_derivative, 3, ranges)
-      # third derivative
-      self.third_derivative = calc_derivative(self.pos_data, self.second_derivative)
-      self.datasets[3] = self.third_derivative
-      self.third_derivative = self.apply_filter(self.datasets.index(self.third_derivative))
+      self.orig_first_derivative = self.first_derivative[:]
+      initial_parameters = [
+         [max(self.first_derivative), self.pos_data[len(self.pos_data) // 4], 20], # left fit
+         [min(self.first_derivative), self.pos_data[len(self.pos_data) // 4 * 3], 20], # right fit
+      ]
+      self.d1_left_fit_args, left_pcov = curve_fit(gauss, self.pos_data[:len(self.pos_data) // 2], self.first_derivative[:len(self.first_derivative) // 2], initial_parameters[0])
+      self.d1_right_fit_args, right_pcov = curve_fit(gauss, self.pos_data[len(self.pos_data) // 2:], self.first_derivative[len(self.first_derivative) // 2:], initial_parameters[1])
+      self.first_derivative = [gauss(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data) // 2]]
+      self.first_derivative.extend([gauss(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data) // 2:]])
 
-      # other data
-      # -
+      # !!!
+      # peak position is gaussian center, and peak value is f(center)
+      # with f beign gauss function with proper arguments for left and right fits
+
+      # self.second_derivative = calc_derivative(self.pos_data, self.first_derivative)
+      self.second_derivative = [gauss_first_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data)//2]]
+      self.second_derivative.extend([gauss_first_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data)//2:]])
+
+      # self.third_derivative = calc_derivative(self.pos_data, self.second_derivative)
+      self.third_derivative = [gauss_second_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data)//2]]
+      self.third_derivative.extend([gauss_second_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data)//2:]])
 
 
    def max_and_min_in_range(self, _data: list, _begin: int = None, _end: int = None):
@@ -148,24 +128,49 @@ class Scan:
       dmini = _data.index(dmin, begin, end)
       return (dmax, dmaxi, dmin, dmini)
 
+   def continuous_max_and_min_in_range(self, f, params: list, n: int, _begin: float = None, _end: float = None):
+      begin = _begin if _begin else 0.0
+      end = _end if _end else 1.0
+      domain = end - begin
+      dmax = f(begin, *params)
+      dmaxi = 0.0
+      dmin = f(begin, *params)
+      dmini = 0.0
+      # iterate through n points from _begin to _end
+      x = begin
+      while x < end:
+         f_x = f(x, *params)
+         # if new max, update and save position
+         if dmax < f_x:
+            dmax = f_x
+            dmaxi = x
+         # if new min, update and save position
+         if dmin > f_x:
+            dmin = f_x
+            dmini = x
+         x += (domain / n)
+      return (dmax, dmaxi, dmin, dmini)
+
 
    def find_inflection_points(self):
       self.process_data()
 
-      d1max, d1maxi, d1min, d1mini = self.max_and_min_in_range(self.first_derivative, None, None)
+      d1max1, d1maxi1, d1min1, d1mini1 = self.max_and_min_in_range(self.first_derivative, None, None)
+      # d1max1, d1maxi1 = self.continuous_max_and_min_in_range(gauss, self.d1_left_fit_args, 100, self.pos_data[0], self.pos_data[len(self.pos_data) // 2])[:2]
+      # d1min1, d1mini1 = self.continuous_max_and_min_in_range(gauss, self.d1_left_fit_args, 100, self.pos_data[len(self.pos_data) // 2], self.pos_data[0])[2:]
 
-      d2max, d2maxi, d2min, d2mini = self.max_and_min_in_range(self.second_derivative, None, len(self.second_derivative) // 2)
+      d2max1, d2maxi1, d2min1, d2mini1 = self.max_and_min_in_range(self.second_derivative, None, len(self.second_derivative) // 2)
       d2max2, d2maxi2, d2min2, d2mini2 = self.max_and_min_in_range(self.second_derivative, len(self.second_derivative) // 2, None)
 
-      d3max, d3maxi, d3min, d3mini = self.max_and_min_in_range(self.third_derivative, None, d2mini)
-      d3max2, d3maxi2, d3min2, d3mini2 = self.max_and_min_in_range(self.third_derivative, d2mini, d2mini2)
+      d3max1, d3maxi1, d3min1, d3mini1 = self.max_and_min_in_range(self.third_derivative, None, d2mini1)
+      d3max2, d3maxi2, d3min2, d3mini2 = self.max_and_min_in_range(self.third_derivative, d2mini1, d2mini2)
       d3max3, d3maxi3, d3min3, d3mini3 = self.max_and_min_in_range(self.third_derivative, d2mini2, None)
 
       # dose(pos(d1max) - 30)
       dose_offset_point_data = [0, [0,0]]
       position_offset = 25.0
       try:
-         dose_offset_point_data = [ self.pos_data[d1maxi] - position_offset, [0, self.dose_data[self.pos_data.index(self.pos_data[d1maxi] - position_offset)]] ]
+         dose_offset_point_data = [ self.pos_data[d1maxi1] - position_offset, [0, self.dose_data[self.pos_data.index(self.pos_data[d1maxi1] - position_offset)]] ]
       except:
          dose_offset_point_data = [ self.pos_data[0], [0, self.dose_data[0]] ]
          self.lt25mm = True
@@ -174,23 +179,42 @@ class Scan:
       # save inflection points data: [pos, [derivative_value, data_value]]
       self.inflection_points = [
          # d1
-         [ (self.pos_data[d1maxi] + self.pos_data[d1maxi + 1]) / 2.0, [d1max, (self.dose_data[d1maxi] + self.dose_data[d1maxi+1]) / 2.0] ],
-         [ (self.pos_data[d1mini] + self.pos_data[d1mini + 1]) / 2.0, [d1min, (self.dose_data[d1mini] + self.dose_data[d1mini+1]) / 2.0] ],
+         [ (self.pos_data[d1maxi1] + self.pos_data[d1maxi1 + 1]) / 2.0, [d1max1, (self.dose_data[d1maxi1] + self.dose_data[d1maxi1+1]) / 2.0] ],
+         [ (self.pos_data[d1mini1] + self.pos_data[d1mini1 + 1]) / 2.0, [d1min1, (self.dose_data[d1mini1] + self.dose_data[d1mini1+1]) / 2.0] ],
          # d2
-         [ self.pos_data[d2maxi], [d2max, self.dose_data[d2maxi]] ],
-         [ self.pos_data[d2mini], [d2min, self.dose_data[d2mini]] ],
-         [ self.pos_data[d2mini2], [d2min2, self.dose_data[d2mini2]] ],
-         [ self.pos_data[d2maxi2], [d2max2, self.dose_data[d2maxi2]] ],
+         [ (self.pos_data[d2maxi1] + self.pos_data[d2maxi1 + 1]) / 2.0, [d2max1, (self.dose_data[d2maxi1] + self.dose_data[d2maxi1 + 1]) / 2.0] ],
+         [ (self.pos_data[d2mini1] + self.pos_data[d2mini1 + 1]) / 2.0, [d2min1, (self.dose_data[d2mini1] + self.dose_data[d2mini1 + 1]) / 2.0] ],
+         [ (self.pos_data[d2mini2] + self.pos_data[d2mini2 + 1]) / 2.0, [d2min2, (self.dose_data[d2mini2] + self.dose_data[d2mini2 + 1]) / 2.0] ],
+         [ (self.pos_data[d2maxi2] + self.pos_data[d2maxi2 + 1]) / 2.0, [d2max2, (self.dose_data[d2maxi2] + self.dose_data[d2maxi2 + 1]) / 2.0] ],
          # d3
-         [ self.pos_data[d3maxi], [d3max, self.dose_data[d3maxi]] ],
-         [ self.pos_data[d3mini], [d3min, self.dose_data[d3mini]] ],
-         [ self.pos_data[d3maxi2], [d3max2, self.dose_data[d3maxi2]] ],
-         [ self.pos_data[d3mini2], [d3min2, self.dose_data[d3mini2]] ],
-         [ self.pos_data[d3maxi3], [d3max3, self.dose_data[d3maxi3]] ],
-         [ self.pos_data[d3mini3], [d3min3, self.dose_data[d3mini3]] ],
+         [ (self.pos_data[d3maxi1] + self.pos_data[d3maxi1 + 1]) / 2.0, [d3max1, (self.dose_data[d3maxi1] + self.dose_data[d3maxi1 + 1]) / 2.0] ],
+         [ (self.pos_data[d3mini1] + self.pos_data[d3mini1 + 1]) / 2.0, [d3min1, (self.dose_data[d3mini1] + self.dose_data[d3mini1 + 1]) / 2.0] ],
+         [ (self.pos_data[d3maxi2] + self.pos_data[d3maxi2 + 1]) / 2.0, [d3max2, (self.dose_data[d3maxi2] + self.dose_data[d3maxi2 + 1]) / 2.0] ],
+         [ (self.pos_data[d3mini2] + self.pos_data[d3mini2 + 1]) / 2.0, [d3min2, (self.dose_data[d3mini2] + self.dose_data[d3mini2 + 1]) / 2.0] ],
+         [ (self.pos_data[d3maxi3] + self.pos_data[d3maxi3 + 1]) / 2.0, [d3max3, (self.dose_data[d3maxi3] + self.dose_data[d3maxi3 + 1]) / 2.0] ],
+         [ (self.pos_data[d3mini3] + self.pos_data[d3mini3 + 1]) / 2.0, [d3min3, (self.dose_data[d3mini3] + self.dose_data[d3mini3 + 1]) / 2.0] ],
          # additional points
          dose_offset_point_data,
       ]
+      # self.inflection_points = [
+      #    # d1
+      #    [ (self.pos_data[d1maxi1] + self.pos_data[d1maxi1 + 1]) / 2.0, [d1max1, (self.dose_data[d1maxi1] + self.dose_data[d1maxi1+1]) / 2.0] ],
+      #    [ (self.pos_data[d1mini1] + self.pos_data[d1mini1 + 1]) / 2.0, [d1min1, (self.dose_data[d1mini1] + self.dose_data[d1mini1+1]) / 2.0] ],
+      #    # d2
+      #    [ self.pos_data[d2maxi1], [d2max1, self.dose_data[d2maxi1]] ],
+      #    [ self.pos_data[d2mini1], [d2min1, self.dose_data[d2mini1]] ],
+      #    [ self.pos_data[d2mini2], [d2min2, self.dose_data[d2mini2]] ],
+      #    [ self.pos_data[d2maxi2], [d2max2, self.dose_data[d2maxi2]] ],
+      #    # d3
+      #    [ self.pos_data[d3maxi1], [d3max1, self.dose_data[d3maxi1]] ],
+      #    [ self.pos_data[d3mini1], [d3min1, self.dose_data[d3mini1]] ],
+      #    [ self.pos_data[d3maxi2], [d3max2, self.dose_data[d3maxi2]] ],
+      #    [ self.pos_data[d3mini2], [d3min2, self.dose_data[d3mini2]] ],
+      #    [ self.pos_data[d3maxi3], [d3max3, self.dose_data[d3maxi3]] ],
+      #    [ self.pos_data[d3mini3], [d3min3, self.dose_data[d3mini3]] ],
+      #    # additional points
+      #    dose_offset_point_data,
+      # ]
 
       # print(f"pos: {self.inflection_points[0][0] == -self.inflection_points[1][0]}, deriv: {self.inflection_points[0][1][0] == -self.inflection_points[1][1][0]}, dose: {self.inflection_points[0][1][1] == self.inflection_points[1][1][1]}, filt: {pmaxi > intersections[0]},{pmini < intersections[1]}")
 
@@ -200,7 +224,8 @@ class Scan:
 
 
    def output_plot(self):
-      marker_size = 7
+      marker_size = 5
+      line_width = 0.8
 
       scatter_points_x = []
       scatter_points_y1 = []
@@ -213,14 +238,23 @@ class Scan:
       # plot components
       fig, ax = plt.subplots(2, 1)
 
-      ax[0].plot(self.pos_data, self.dose_data, c = "blue")
+      d2 = [gauss_first_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data) // 2]]
+      d2.extend([gauss_first_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data) // 2:]])
+      d3 = [gauss_second_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data) // 2]]
+      d3.extend([gauss_second_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data) // 2:]])
+
+      ax[0].plot(self.pos_data, self.orig_dose_data, c = "blue", linewidth = line_width)
+      ax[0].plot(self.pos_data, self.dose_data, c = "purple", linewidth = line_width)
       ax[0].scatter(scatter_points_x, scatter_points_y1, c = "black", s = marker_size, zorder = 9)
       ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker = "+", c = "cyan", zorder = 10)
       ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker = "+", c = "cyan", zorder = 10)
 
-      ax[1].plot(self.pos_data, self.first_derivative, c = "red")
-      ax[1].plot(self.pos_data, self.second_derivative, c = "green")
-      ax[1].plot(self.pos_data, self.third_derivative, c = "purple")
+      ax[1].plot(self.pos_data, self.first_derivative, c = "red", linewidth = line_width)
+      ax[1].plot(self.pos_data, self.orig_first_derivative, c = "blue", linewidth = line_width)
+      # ax[1].plot(self.pos_data, self.second_derivative, c = "green", linewidth = line_width)
+      # ax[1].plot(self.pos_data, self.third_derivative, c = "purple", linewidth = line_width)
+      ax[1].plot(self.pos_data, d2, c = "green", linewidth = line_width)
+      ax[1].plot(self.pos_data, d3, c = "purple", linewidth = line_width)
       ax[1].scatter(scatter_points_x, scatter_points_y2, c = "black", s = marker_size, zorder = 9)
       ax[1].scatter(self.inflection_points[0][0], self.inflection_points[0][1][0], marker = "+", c = "cyan", zorder = 10)
       ax[1].scatter(self.inflection_points[1][0], self.inflection_points[1][1][0], marker = "+", c = "cyan", zorder = 10)
@@ -247,7 +281,7 @@ class Profile:
    scans: list
    iso_field_size: str
 
-   def __init__(self, file_path: str, out_dir: str, _processing_settings: ProcessingSettings):
+   def __init__(self, file_path: str, out_dir: str):
       self.name = file_path.split("/")[-1].replace(".mcc", "")
       self.iso_field_size = self.name.split(" ")[3]
       self.scans = []
@@ -281,7 +315,7 @@ class Profile:
             else:
                end_region_index = raw_data.index(f"\tEND_SCAN {scan_num}")
 
-            self.scans.append(Scan(scan_num, raw_data, i, end_region_index, profile_out_dir, _processing_settings))
+            self.scans.append(Scan(scan_num, raw_data, i, end_region_index, profile_out_dir))
 
             # skip content in between
             i = end_region_index
@@ -300,7 +334,7 @@ class Cacher:
    # [!] filter faulty scans and log them to a file
    faulty_scans_list: list
 
-   def __init__(self, _res_dir: str, _out_dir: str, _processing_settings):
+   def __init__(self, _res_dir: str, _out_dir: str):
       self.profiles = []
       self.res_dir = _res_dir
       self.out_dir = _out_dir
@@ -318,7 +352,7 @@ class Cacher:
 
       # create profile out of each file in filelist
       for f in filelist:
-         self.profiles.append(Profile(f, self.out_dir, _processing_settings))
+         self.profiles.append(Profile(f, self.out_dir))
 
       self.output_tables()
       
