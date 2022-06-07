@@ -91,9 +91,20 @@ class Scan:
          raise Exception("not yet implemented")
 
 
-   # eww... and it's not emacs' browser
    def process_data(self):
+      self.orig_pos_data = self.pos_data[:]
       self.orig_dose_data = self.dose_data[:]
+      self.pos_data = []
+      self.dose_data = []
+
+      for i in range(len(self.orig_pos_data)):
+         inext = i + 1
+         if inext == len(self.orig_pos_data): break
+         t = 0.0
+         while t < 1.0:
+            self.pos_data.append(lerp(self.orig_pos_data[i], self.orig_pos_data[inext], t))
+            self.dose_data.append(lerp(self.orig_dose_data[i], self.orig_dose_data[inext], t))
+            t += 0.2
 
       self.first_derivative = calc_derivative(self.pos_data, self.dose_data)
       self.orig_first_derivative = self.first_derivative[:]
@@ -118,53 +129,21 @@ class Scan:
       self.third_derivative = [gauss_second_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data)//2]]
       self.third_derivative.extend([gauss_second_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data)//2:]])
 
-
-   def max_and_min_in_range(self, _data: list, _begin: int = None, _end: int = None):
-      begin = _begin if _begin else 0
-      end = _end if _end else len(_data)
-      dmax= max(_data[begin:end])
-      dmin = min(_data[begin:end])
-      dmaxi = _data.index(dmax, begin, end)
-      dmini = _data.index(dmin, begin, end)
-      return (dmax, dmaxi, dmin, dmini)
-
-   def continuous_max_and_min_in_range(self, f, params: list, n: int, _begin: float = None, _end: float = None):
-      begin = _begin if _begin else 0.0
-      end = _end if _end else 1.0
-      domain = end - begin
-      dmax = f(begin, *params)
-      dmaxi = 0.0
-      dmin = f(begin, *params)
-      dmini = 0.0
-      # iterate through n points from _begin to _end
-      x = begin
-      while x < end:
-         f_x = f(x, *params)
-         # if new max, update and save position
-         if dmax < f_x:
-            dmax = f_x
-            dmaxi = x
-         # if new min, update and save position
-         if dmin > f_x:
-            dmin = f_x
-            dmini = x
-         x += (domain / n)
-      return (dmax, dmaxi, dmin, dmini)
-
+      print(self.pos_data[0] - self.pos_data[1])
 
    def find_inflection_points(self):
       self.process_data()
 
-      d1max1, d1maxi1, d1min1, d1mini1 = self.max_and_min_in_range(self.first_derivative, None, None)
+      d1max1, d1maxi1, d1min1, d1mini1 = max_and_min_in_range(self.first_derivative, None, None)
       # d1max1, d1maxi1 = self.continuous_max_and_min_in_range(gauss, self.d1_left_fit_args, 100, self.pos_data[0], self.pos_data[len(self.pos_data) // 2])[:2]
       # d1min1, d1mini1 = self.continuous_max_and_min_in_range(gauss, self.d1_left_fit_args, 100, self.pos_data[len(self.pos_data) // 2], self.pos_data[0])[2:]
 
-      d2max1, d2maxi1, d2min1, d2mini1 = self.max_and_min_in_range(self.second_derivative, None, len(self.second_derivative) // 2)
-      d2max2, d2maxi2, d2min2, d2mini2 = self.max_and_min_in_range(self.second_derivative, len(self.second_derivative) // 2, None)
+      d2max1, d2maxi1, d2min1, d2mini1 = max_and_min_in_range(self.second_derivative, None, len(self.second_derivative) // 2)
+      d2max2, d2maxi2, d2min2, d2mini2 = max_and_min_in_range(self.second_derivative, len(self.second_derivative) // 2, None)
 
-      d3max1, d3maxi1, d3min1, d3mini1 = self.max_and_min_in_range(self.third_derivative, None, d2mini1)
-      d3max2, d3maxi2, d3min2, d3mini2 = self.max_and_min_in_range(self.third_derivative, d2mini1, d2mini2)
-      d3max3, d3maxi3, d3min3, d3mini3 = self.max_and_min_in_range(self.third_derivative, d2mini2, None)
+      d3max1, d3maxi1, d3min1, d3mini1 = max_and_min_in_range(self.third_derivative, None, d2mini1)
+      d3max2, d3maxi2, d3min2, d3mini2 = max_and_min_in_range(self.third_derivative, d2mini1, d2mini2)
+      d3max3, d3maxi3, d3min3, d3mini3 = max_and_min_in_range(self.third_derivative, d2mini2, None)
 
       # dose(pos(d1max) - 30)
       dose_offset_point_data = [0, [0,0]]
@@ -243,8 +222,7 @@ class Scan:
       d3 = [gauss_second_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data) // 2]]
       d3.extend([gauss_second_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data) // 2:]])
 
-      ax[0].plot(self.pos_data, self.orig_dose_data, c = "blue", linewidth = line_width)
-      ax[0].plot(self.pos_data, self.dose_data, c = "purple", linewidth = line_width)
+      ax[0].plot(self.pos_data, self.dose_data, c = "blue", linewidth = line_width)
       ax[0].scatter(scatter_points_x, scatter_points_y1, c = "black", s = marker_size, zorder = 9)
       ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker = "+", c = "cyan", zorder = 10)
       ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker = "+", c = "cyan", zorder = 10)

@@ -115,3 +115,36 @@ def gauss_first_derivative(x, amp, cen, wid):
 def gauss_second_derivative(x, amp, cen, wid):
     return amp * (x ** 2.0 - 2 * cen * x - wid ** 2.0 + cen ** 2.0) * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2.0)) / wid ** 4.0
 
+def lerp(v0, v1, t):
+    # return v0 + t * (v1 - v0)
+    return (1 - t) * v0 + t * v1
+
+def max_and_min_in_range(_data: list, _begin: int = None, _end: int = None):
+    begin = _begin if _begin else 0
+    end = _end if _end else len(_data)
+    dmax= max(_data[begin:end])
+    dmin = min(_data[begin:end])
+    dmaxi = _data.index(dmax, begin, end)
+    dmini = _data.index(dmin, begin, end)
+    return (dmax, dmaxi, dmin, dmini)
+
+def continuous_max_and_min_in_range(self, f, params: list, n: int, begin: float = 0.0, end: float = 1.0):
+    domain = end - begin
+    dmax = f(begin, *params)
+    dmaxi = 0.0
+    dmin = f(begin, *params)
+    dmini = 0.0
+    # iterate through n points from _begin to _end
+    x = begin
+    while x < end:
+        f_x = f(x, *params)
+        # if new max, update and save position
+        if dmax < f_x:
+            dmax = f_x
+            dmaxi = x
+        # if new min, update and save position
+        if dmin > f_x:
+            dmin = f_x
+            dmini = x
+        x += (domain / n)
+    return (dmax, dmaxi, dmin, dmini)
