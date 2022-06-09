@@ -14,7 +14,7 @@ def extract_column(data:list, n):
 # returns the mobile mean curve of the dataset given
 def moving_average(data:list, N:int):
     offset = math.floor(N/2)
-    averages = data[0:offset] # 0 -> 3   [0,1,2,3]
+    averages = data[0:offset]
     window_average = 0
     i = offset
     while i < len(data) - offset:

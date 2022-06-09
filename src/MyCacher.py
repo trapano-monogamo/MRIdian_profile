@@ -92,18 +92,16 @@ class Scan:
 
 
    def process_data(self):
-      self.orig_pos_data = self.pos_data[:]
-      self.orig_dose_data = self.dose_data[:]
-      self.pos_data = []
-      self.dose_data = []
+      self.rebinned_pos_data = []
+      self.rebinned_dose_data = []
 
-      for i in range(len(self.orig_pos_data)):
+      for i in range(len(self.pos_data)):
          inext = i + 1
-         if inext == len(self.orig_pos_data): break
+         if inext == len(self.pos_data): break
          t = 0.0
          while t < 1.0:
-            self.pos_data.append(lerp(self.orig_pos_data[i], self.orig_pos_data[inext], t))
-            self.dose_data.append(lerp(self.orig_dose_data[i], self.orig_dose_data[inext], t))
+            self.rebinned_pos_data.append(lerp(self.pos_data[i], self.pos_data[inext], t))
+            self.rebinned_dose_data.append(lerp(self.dose_data[i], self.dose_data[inext], t))
             t += 0.2
 
       self.first_derivative = calc_derivative(self.pos_data, self.dose_data)
@@ -114,29 +112,27 @@ class Scan:
       ]
       self.d1_left_fit_args, left_pcov = curve_fit(gauss, self.pos_data[:len(self.pos_data) // 2], self.first_derivative[:len(self.first_derivative) // 2], initial_parameters[0])
       self.d1_right_fit_args, right_pcov = curve_fit(gauss, self.pos_data[len(self.pos_data) // 2:], self.first_derivative[len(self.first_derivative) // 2:], initial_parameters[1])
-      self.first_derivative = [gauss(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data) // 2]]
-      self.first_derivative.extend([gauss(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data) // 2:]])
+      self.d1_left_fit_args[1] += 0.25
+      self.d1_right_fit_args[1] += 0.25
+      self.first_derivative = [gauss(x, *self.d1_left_fit_args) for x in self.rebinned_pos_data[:len(self.rebinned_pos_data) // 2]]
+      self.first_derivative.extend([gauss(x, *self.d1_right_fit_args) for x in self.rebinned_pos_data[len(self.rebinned_pos_data) // 2:]])
 
       # !!!
       # peak position is gaussian center, and peak value is f(center)
       # with f beign gauss function with proper arguments for left and right fits
 
       # self.second_derivative = calc_derivative(self.pos_data, self.first_derivative)
-      self.second_derivative = [gauss_first_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data)//2]]
-      self.second_derivative.extend([gauss_first_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data)//2:]])
+      self.second_derivative = [gauss_first_derivative(x, *self.d1_left_fit_args) for x in self.rebinned_pos_data[:len(self.rebinned_pos_data)//2]]
+      self.second_derivative.extend([gauss_first_derivative(x, *self.d1_right_fit_args) for x in self.rebinned_pos_data[len(self.rebinned_pos_data)//2:]])
 
       # self.third_derivative = calc_derivative(self.pos_data, self.second_derivative)
-      self.third_derivative = [gauss_second_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data)//2]]
-      self.third_derivative.extend([gauss_second_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data)//2:]])
-
-      print(self.pos_data[0] - self.pos_data[1])
+      self.third_derivative = [gauss_second_derivative(x, *self.d1_left_fit_args) for x in self.rebinned_pos_data[:len(self.rebinned_pos_data)//2]]
+      self.third_derivative.extend([gauss_second_derivative(x, *self.d1_right_fit_args) for x in self.rebinned_pos_data[len(self.rebinned_pos_data)//2:]])
 
    def find_inflection_points(self):
       self.process_data()
 
       d1max1, d1maxi1, d1min1, d1mini1 = max_and_min_in_range(self.first_derivative, None, None)
-      # d1max1, d1maxi1 = self.continuous_max_and_min_in_range(gauss, self.d1_left_fit_args, 100, self.pos_data[0], self.pos_data[len(self.pos_data) // 2])[:2]
-      # d1min1, d1mini1 = self.continuous_max_and_min_in_range(gauss, self.d1_left_fit_args, 100, self.pos_data[len(self.pos_data) // 2], self.pos_data[0])[2:]
 
       d2max1, d2maxi1, d2min1, d2mini1 = max_and_min_in_range(self.second_derivative, None, len(self.second_derivative) // 2)
       d2max2, d2maxi2, d2min2, d2mini2 = max_and_min_in_range(self.second_derivative, len(self.second_derivative) // 2, None)
@@ -149,51 +145,51 @@ class Scan:
       dose_offset_point_data = [0, [0,0]]
       position_offset = 25.0
       try:
-         dose_offset_point_data = [ self.pos_data[d1maxi1] - position_offset, [0, self.dose_data[self.pos_data.index(self.pos_data[d1maxi1] - position_offset)]] ]
+         dose_offset_point_data = [ self.rebinned_pos_data[d1maxi1] - position_offset, [0, self.rebinned_dose_data[self.rebinned_pos_data.index(self.rebinned_pos_data[d1maxi1] - position_offset)]] ]
       except:
-         dose_offset_point_data = [ self.pos_data[0], [0, self.dose_data[0]] ]
+         dose_offset_point_data = [ self.rebinned_pos_data[0], [0, self.rebinned_dose_data[0]] ]
          self.lt25mm = True
 
 
       # save inflection points data: [pos, [derivative_value, data_value]]
-      self.inflection_points = [
-         # d1
-         [ (self.pos_data[d1maxi1] + self.pos_data[d1maxi1 + 1]) / 2.0, [d1max1, (self.dose_data[d1maxi1] + self.dose_data[d1maxi1+1]) / 2.0] ],
-         [ (self.pos_data[d1mini1] + self.pos_data[d1mini1 + 1]) / 2.0, [d1min1, (self.dose_data[d1mini1] + self.dose_data[d1mini1+1]) / 2.0] ],
-         # d2
-         [ (self.pos_data[d2maxi1] + self.pos_data[d2maxi1 + 1]) / 2.0, [d2max1, (self.dose_data[d2maxi1] + self.dose_data[d2maxi1 + 1]) / 2.0] ],
-         [ (self.pos_data[d2mini1] + self.pos_data[d2mini1 + 1]) / 2.0, [d2min1, (self.dose_data[d2mini1] + self.dose_data[d2mini1 + 1]) / 2.0] ],
-         [ (self.pos_data[d2mini2] + self.pos_data[d2mini2 + 1]) / 2.0, [d2min2, (self.dose_data[d2mini2] + self.dose_data[d2mini2 + 1]) / 2.0] ],
-         [ (self.pos_data[d2maxi2] + self.pos_data[d2maxi2 + 1]) / 2.0, [d2max2, (self.dose_data[d2maxi2] + self.dose_data[d2maxi2 + 1]) / 2.0] ],
-         # d3
-         [ (self.pos_data[d3maxi1] + self.pos_data[d3maxi1 + 1]) / 2.0, [d3max1, (self.dose_data[d3maxi1] + self.dose_data[d3maxi1 + 1]) / 2.0] ],
-         [ (self.pos_data[d3mini1] + self.pos_data[d3mini1 + 1]) / 2.0, [d3min1, (self.dose_data[d3mini1] + self.dose_data[d3mini1 + 1]) / 2.0] ],
-         [ (self.pos_data[d3maxi2] + self.pos_data[d3maxi2 + 1]) / 2.0, [d3max2, (self.dose_data[d3maxi2] + self.dose_data[d3maxi2 + 1]) / 2.0] ],
-         [ (self.pos_data[d3mini2] + self.pos_data[d3mini2 + 1]) / 2.0, [d3min2, (self.dose_data[d3mini2] + self.dose_data[d3mini2 + 1]) / 2.0] ],
-         [ (self.pos_data[d3maxi3] + self.pos_data[d3maxi3 + 1]) / 2.0, [d3max3, (self.dose_data[d3maxi3] + self.dose_data[d3maxi3 + 1]) / 2.0] ],
-         [ (self.pos_data[d3mini3] + self.pos_data[d3mini3 + 1]) / 2.0, [d3min3, (self.dose_data[d3mini3] + self.dose_data[d3mini3 + 1]) / 2.0] ],
-         # additional points
-         dose_offset_point_data,
-      ]
       # self.inflection_points = [
       #    # d1
-      #    [ (self.pos_data[d1maxi1] + self.pos_data[d1maxi1 + 1]) / 2.0, [d1max1, (self.dose_data[d1maxi1] + self.dose_data[d1maxi1+1]) / 2.0] ],
-      #    [ (self.pos_data[d1mini1] + self.pos_data[d1mini1 + 1]) / 2.0, [d1min1, (self.dose_data[d1mini1] + self.dose_data[d1mini1+1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d1maxi1] + self.rebinned_pos_data[d1maxi1 + 1]) / 2.0, [d1max1, (self.rebinned_dose_data[d1maxi1] + self.rebinned_dose_data[d1maxi1+1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d1mini1] + self.rebinned_pos_data[d1mini1 + 1]) / 2.0, [d1min1, (self.rebinned_dose_data[d1mini1] + self.rebinned_dose_data[d1mini1+1]) / 2.0] ],
       #    # d2
-      #    [ self.pos_data[d2maxi1], [d2max1, self.dose_data[d2maxi1]] ],
-      #    [ self.pos_data[d2mini1], [d2min1, self.dose_data[d2mini1]] ],
-      #    [ self.pos_data[d2mini2], [d2min2, self.dose_data[d2mini2]] ],
-      #    [ self.pos_data[d2maxi2], [d2max2, self.dose_data[d2maxi2]] ],
+      #    [ (self.rebinned_pos_data[d2maxi1] + self.rebinned_pos_data[d2maxi1 + 1]) / 2.0, [d2max1, (self.rebinned_dose_data[d2maxi1] + self.rebinned_dose_data[d2maxi1 + 1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d2mini1] + self.rebinned_pos_data[d2mini1 + 1]) / 2.0, [d2min1, (self.rebinned_dose_data[d2mini1] + self.rebinned_dose_data[d2mini1 + 1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d2mini2] + self.rebinned_pos_data[d2mini2 + 1]) / 2.0, [d2min2, (self.rebinned_dose_data[d2mini2] + self.rebinned_dose_data[d2mini2 + 1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d2maxi2] + self.rebinned_pos_data[d2maxi2 + 1]) / 2.0, [d2max2, (self.rebinned_dose_data[d2maxi2] + self.rebinned_dose_data[d2maxi2 + 1]) / 2.0] ],
       #    # d3
-      #    [ self.pos_data[d3maxi1], [d3max1, self.dose_data[d3maxi1]] ],
-      #    [ self.pos_data[d3mini1], [d3min1, self.dose_data[d3mini1]] ],
-      #    [ self.pos_data[d3maxi2], [d3max2, self.dose_data[d3maxi2]] ],
-      #    [ self.pos_data[d3mini2], [d3min2, self.dose_data[d3mini2]] ],
-      #    [ self.pos_data[d3maxi3], [d3max3, self.dose_data[d3maxi3]] ],
-      #    [ self.pos_data[d3mini3], [d3min3, self.dose_data[d3mini3]] ],
+      #    [ (self.rebinned_pos_data[d3maxi1] + self.rebinned_pos_data[d3maxi1 + 1]) / 2.0, [d3max1, (self.rebinned_dose_data[d3maxi1] + self.rebinned_dose_data[d3maxi1 + 1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d3mini1] + self.rebinned_pos_data[d3mini1 + 1]) / 2.0, [d3min1, (self.rebinned_dose_data[d3mini1] + self.rebinned_dose_data[d3mini1 + 1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d3maxi2] + self.rebinned_pos_data[d3maxi2 + 1]) / 2.0, [d3max2, (self.rebinned_dose_data[d3maxi2] + self.rebinned_dose_data[d3maxi2 + 1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d3mini2] + self.rebinned_pos_data[d3mini2 + 1]) / 2.0, [d3min2, (self.rebinned_dose_data[d3mini2] + self.rebinned_dose_data[d3mini2 + 1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d3maxi3] + self.rebinned_pos_data[d3maxi3 + 1]) / 2.0, [d3max3, (self.rebinned_dose_data[d3maxi3] + self.rebinned_dose_data[d3maxi3 + 1]) / 2.0] ],
+      #    [ (self.rebinned_pos_data[d3mini3] + self.rebinned_pos_data[d3mini3 + 1]) / 2.0, [d3min3, (self.rebinned_dose_data[d3mini3] + self.rebinned_dose_data[d3mini3 + 1]) / 2.0] ],
       #    # additional points
       #    dose_offset_point_data,
       # ]
+      self.inflection_points = [
+         # d1
+         [ self.rebinned_pos_data[d1maxi1], [d1max1, self.rebinned_dose_data[d1maxi1]] ],
+         [ self.rebinned_pos_data[d1mini1], [d1min1, self.rebinned_dose_data[d1mini1]] ],
+         # d2
+         [ self.rebinned_pos_data[d2maxi1], [d2max1, self.rebinned_dose_data[d2maxi1]] ],
+         [ self.rebinned_pos_data[d2mini1], [d2min1, self.rebinned_dose_data[d2mini1]] ],
+         [ self.rebinned_pos_data[d2mini2], [d2min2, self.rebinned_dose_data[d2mini2]] ],
+         [ self.rebinned_pos_data[d2maxi2], [d2max2, self.rebinned_dose_data[d2maxi2]] ],
+         # d3
+         [ self.rebinned_pos_data[d3maxi1], [d3max1, self.rebinned_dose_data[d3maxi1]] ],
+         [ self.rebinned_pos_data[d3mini1], [d3min1, self.rebinned_dose_data[d3mini1]] ],
+         [ self.rebinned_pos_data[d3maxi2], [d3max2, self.rebinned_dose_data[d3maxi2]] ],
+         [ self.rebinned_pos_data[d3mini2], [d3min2, self.rebinned_dose_data[d3mini2]] ],
+         [ self.rebinned_pos_data[d3maxi3], [d3max3, self.rebinned_dose_data[d3maxi3]] ],
+         [ self.rebinned_pos_data[d3mini3], [d3min3, self.rebinned_dose_data[d3mini3]] ],
+         # additional points
+         dose_offset_point_data,
+      ]
 
       # print(f"pos: {self.inflection_points[0][0] == -self.inflection_points[1][0]}, deriv: {self.inflection_points[0][1][0] == -self.inflection_points[1][1][0]}, dose: {self.inflection_points[0][1][1] == self.inflection_points[1][1][1]}, filt: {pmaxi > intersections[0]},{pmini < intersections[1]}")
 
@@ -217,22 +213,15 @@ class Scan:
       # plot components
       fig, ax = plt.subplots(2, 1)
 
-      d2 = [gauss_first_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data) // 2]]
-      d2.extend([gauss_first_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data) // 2:]])
-      d3 = [gauss_second_derivative(x, *self.d1_left_fit_args) for x in self.pos_data[:len(self.pos_data) // 2]]
-      d3.extend([gauss_second_derivative(x, *self.d1_right_fit_args) for x in self.pos_data[len(self.pos_data) // 2:]])
-
       ax[0].plot(self.pos_data, self.dose_data, c = "blue", linewidth = line_width)
       ax[0].scatter(scatter_points_x, scatter_points_y1, c = "black", s = marker_size, zorder = 9)
       ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker = "+", c = "cyan", zorder = 10)
       ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker = "+", c = "cyan", zorder = 10)
 
-      ax[1].plot(self.pos_data, self.first_derivative, c = "red", linewidth = line_width)
       ax[1].plot(self.pos_data, self.orig_first_derivative, c = "blue", linewidth = line_width)
-      # ax[1].plot(self.pos_data, self.second_derivative, c = "green", linewidth = line_width)
-      # ax[1].plot(self.pos_data, self.third_derivative, c = "purple", linewidth = line_width)
-      ax[1].plot(self.pos_data, d2, c = "green", linewidth = line_width)
-      ax[1].plot(self.pos_data, d3, c = "purple", linewidth = line_width)
+      ax[1].plot(self.rebinned_pos_data, self.first_derivative, c = "red", linewidth = line_width)
+      ax[1].plot(self.rebinned_pos_data, self.second_derivative, c = "green", linewidth = line_width)
+      ax[1].plot(self.rebinned_pos_data, self.third_derivative, c = "purple", linewidth = line_width)
       ax[1].scatter(scatter_points_x, scatter_points_y2, c = "black", s = marker_size, zorder = 9)
       ax[1].scatter(self.inflection_points[0][0], self.inflection_points[0][1][0], marker = "+", c = "cyan", zorder = 10)
       ax[1].scatter(self.inflection_points[1][0], self.inflection_points[1][1][0], marker = "+", c = "cyan", zorder = 10)
