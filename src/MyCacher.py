@@ -29,11 +29,12 @@ class Scan:
    lt25mm: bool
    d1_left_fit_args: list
    d1_right_fit_args: list
+   binning: float
 
    # useful data
    profile_out_dir: str
 
-   def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir):
+   def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir, binning:float):
       self.scan_num = _scan_num
       self.fields = {}
       self.pos_data = []
@@ -46,6 +47,7 @@ class Scan:
       self.d1_left_fit_args: list
       self.d1_right_fit_args: list
       self.profile_out_dir = _profile_out_dir
+      self.binning = binning
 
       # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
       # once it is encountered, collect floats
@@ -95,6 +97,8 @@ class Scan:
       self.rebinned_pos_data = []
       self.rebinned_dose_data = []
 
+      # rebinning
+      current_binning = abs(self.pos_data[0] - self.pos_data[1])
       for i in range(len(self.pos_data)):
          inext = i + 1
          if inext == len(self.pos_data): break
@@ -102,7 +106,7 @@ class Scan:
          while t < 1.0:
             self.rebinned_pos_data.append(lerp(self.pos_data[i], self.pos_data[inext], t))
             self.rebinned_dose_data.append(lerp(self.dose_data[i], self.dose_data[inext], t))
-            t += 0.2
+            t += (self.binning / current_binning)
 
       self.first_derivative = calc_derivative(self.pos_data, self.dose_data)
       self.orig_first_derivative = self.first_derivative[:]
@@ -248,7 +252,7 @@ class Profile:
    scans: list
    iso_field_size: str
 
-   def __init__(self, file_path: str, out_dir: str):
+   def __init__(self, file_path: str, out_dir: str, binning: float):
       self.name = file_path.split("/")[-1].replace(".mcc", "")
       self.iso_field_size = self.name.split(" ")[3]
       self.scans = []
@@ -282,7 +286,7 @@ class Profile:
             else:
                end_region_index = raw_data.index(f"\tEND_SCAN {scan_num}")
 
-            self.scans.append(Scan(scan_num, raw_data, i, end_region_index, profile_out_dir))
+            self.scans.append(Scan(scan_num, raw_data, i, end_region_index, profile_out_dir, binning))
 
             # skip content in between
             i = end_region_index
@@ -301,7 +305,7 @@ class Cacher:
    # [!] filter faulty scans and log them to a file
    faulty_scans_list: list
 
-   def __init__(self, _res_dir: str, _out_dir: str):
+   def __init__(self, _res_dir: str, _out_dir: str, binning: float):
       self.profiles = []
       self.res_dir = _res_dir
       self.out_dir = _out_dir
@@ -319,7 +323,7 @@ class Cacher:
 
       # create profile out of each file in filelist
       for f in filelist:
-         self.profiles.append(Profile(f, self.out_dir))
+         self.profiles.append(Profile(f, self.out_dir, binning))
 
       self.output_tables()
       
@@ -328,6 +332,7 @@ class Cacher:
    def create_table(self, profiles: list, measurement_depths: list):
       # create table's first (transposed first column)
       table = [["depth"] + [str(m / 10.0) for m in measurement_depths]]
+      data_precision = 5
       # for each profile
       for p in range(len(profiles)):
          # prepare the table's row
@@ -352,40 +357,46 @@ class Cacher:
                #   column_content.append(round(temp_profile_scans[s].inflection_points[i+1][1][1], 3))
 
                temp_table_row.append([
-                  round(dose_at_zero, 3),
+                  # binning
+                  round(abs(temp_profile_scans[s].pos_data[0] - temp_profile_scans[s].pos_data[1]), data_precision),
+                  round(abs(temp_profile_scans[s].rebinned_pos_data[0] - temp_profile_scans[s].rebinned_pos_data[1]), data_precision),
+                  # D(0)
+                  round(dose_at_zero, data_precision),
                   # d1: max
-                  round(temp_profile_scans[s].inflection_points[0][0], 3),
-                  round(temp_profile_scans[s].inflection_points[0][1][1], 3),
+                  round(temp_profile_scans[s].inflection_points[0][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[0][1][1], data_precision),
                   # d1: min
-                  round(temp_profile_scans[s].inflection_points[1][0], 3),
-                  round(temp_profile_scans[s].inflection_points[1][1][1], 3),
+                  round(temp_profile_scans[s].inflection_points[1][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[1][1][1], data_precision),
                   # d2: max1, min1
-                  round(temp_profile_scans[s].inflection_points[2][0], 3),
-                  round(temp_profile_scans[s].inflection_points[3][0], 3),
-                  round(temp_profile_scans[s].inflection_points[2][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[3][1][1], 3),
+                  round(temp_profile_scans[s].inflection_points[2][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[3][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[2][1][1], data_precision),
+                  round(temp_profile_scans[s].inflection_points[3][1][1], data_precision),
                   # d2: min2, max2
-                  round(temp_profile_scans[s].inflection_points[4][0], 3),
-                  round(temp_profile_scans[s].inflection_points[5][0], 3),
-                  round(temp_profile_scans[s].inflection_points[4][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[5][1][1], 3),
+                  round(temp_profile_scans[s].inflection_points[4][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[5][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[4][1][1], data_precision),
+                  round(temp_profile_scans[s].inflection_points[5][1][1], data_precision),
                   # d3: max1, min1, max2
-                  round(temp_profile_scans[s].inflection_points[6][0], 3),
-                  round(temp_profile_scans[s].inflection_points[7][0], 3),
-                  round(temp_profile_scans[s].inflection_points[8][0], 3),
-                  round(temp_profile_scans[s].inflection_points[6][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[7][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[8][1][1], 3),
+                  round(temp_profile_scans[s].inflection_points[6][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[7][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[8][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[6][1][1], data_precision),
+                  round(temp_profile_scans[s].inflection_points[7][1][1], data_precision),
+                  round(temp_profile_scans[s].inflection_points[8][1][1], data_precision),
                   # d3: min2, max3, min3
-                  round(temp_profile_scans[s].inflection_points[9][0], 3),
-                  round(temp_profile_scans[s].inflection_points[10][0], 3),
-                  round(temp_profile_scans[s].inflection_points[11][0], 3),
-                  round(temp_profile_scans[s].inflection_points[9][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[10][1][1], 3),
-                  round(temp_profile_scans[s].inflection_points[11][1][1], 3),
+                  round(temp_profile_scans[s].inflection_points[9][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[10][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[11][0], data_precision),
+                  round(temp_profile_scans[s].inflection_points[9][1][1], data_precision),
+                  round(temp_profile_scans[s].inflection_points[10][1][1], data_precision),
+                  round(temp_profile_scans[s].inflection_points[11][1][1], data_precision),
                   # additional points
-                  round(temp_profile_scans[s].inflection_points[-1][1][1] / 10.0, 3),
+                  round(temp_profile_scans[s].inflection_points[-1][1][1] / 10.0, data_precision),
                   "lt25" if temp_profile_scans[s].lt25mm else "eq25",
+                  *[round(n, data_precision) for n in temp_profile_scans[s].d1_left_fit_args.tolist()
+                     + temp_profile_scans[s].d1_right_fit_args.tolist()],
                ])
 
                # append the cell to the row
@@ -424,7 +435,7 @@ class Cacher:
 
          tabextension = 12
          with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
-            f.write("FS\td_cm\tD(0)\tp1d1sx\tD(p1d1sx)\tp1d1dx\tD(p1d1dx)\tp1d2sx\tp2d2sx\tD(p1d2sx)\tD(p2d2sx)\tp1d2dx\tp2d2dx\tD(p1d2dx)\tD(p2d2dx)\tp1d3sx\tp2d3sx\tp3d3sx\tD(p1d3sx)\tD(p2d3sx)\tD(p3d3sx)\tp1d3dx\tp2d3dx\tp3d3dx\tD(p1d3dx)\tD(p2d3dx)\tD(p3d3dx)\tD(IP-25)\toff25\n".expandtabs(tabextension))
+            f.write("FS\td_cm\tini_bin\tbin\tD(0)\tp1d1sx\tD(p1d1sx)\tp1d1dx\tD(p1d1dx)\tp1d2sx\tp2d2sx\tD(p1d2sx)\tD(p2d2sx)\tp1d2dx\tp2d2dx\tD(p1d2dx)\tD(p2d2dx)\tp1d3sx\tp2d3sx\tp3d3sx\tD(p1d3sx)\tD(p2d3sx)\tD(p3d3sx)\tp1d3dx\tp2d3dx\tp3d3dx\tD(p1d3dx)\tD(p2d3dx)\tD(p3d3dx)\tD(IP-25)\toff25\tparams\n".expandtabs(tabextension))
             for row in range(1, len(table)):
                for cell in range(1, len(table[row])):
                   cell_data = '\t'.join([str(x) for x in table[row][cell]])
