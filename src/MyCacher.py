@@ -111,11 +111,15 @@ class Scan:
       self.first_derivative = calc_derivative(self.pos_data, self.dose_data)
       self.orig_first_derivative = self.first_derivative[:]
       initial_parameters = [
-         [max(self.first_derivative), self.pos_data[len(self.pos_data) // 4], 20], # left fit
-         [min(self.first_derivative), self.pos_data[len(self.pos_data) // 4 * 3], 20], # right fit
+         [max(self.first_derivative), -(abs(self.pos_data[0]) // 5 * 4), 20], # left fit
+         [min(self.first_derivative), self.pos_data[-1] // 5 * 4, 20], # right fit
       ]
-      self.d1_left_fit_args, left_pcov = curve_fit(gauss, self.pos_data[:len(self.pos_data) // 2], self.first_derivative[:len(self.first_derivative) // 2], initial_parameters[0])
-      self.d1_right_fit_args, right_pcov = curve_fit(gauss, self.pos_data[len(self.pos_data) // 2:], self.first_derivative[len(self.first_derivative) // 2:], initial_parameters[1])
+      try:
+         self.d1_left_fit_args, left_pcov = curve_fit(gauss, self.pos_data[:len(self.pos_data) // 2], self.first_derivative[:len(self.first_derivative) // 2], initial_parameters[0])
+         self.d1_right_fit_args, right_pcov = curve_fit(gauss, self.pos_data[len(self.pos_data) // 2:], self.first_derivative[len(self.first_derivative) // 2:], initial_parameters[1])
+      except:
+         self.d1_left_fit_args = np.array([1,1,1])
+         self.d1_right_fit_args = np.array([1,1,1])
       self.d1_left_fit_args[1] += 0.25
       self.d1_right_fit_args[1] += 0.25
       self.first_derivative = [gauss(x, *self.d1_left_fit_args) for x in self.rebinned_pos_data[:len(self.rebinned_pos_data) // 2]]
@@ -336,7 +340,10 @@ class Cacher:
       # for each profile
       for p in range(len(profiles)):
          # prepare the table's row
-         temp_table_row = [profiles[p].name.split(" ")[3]]
+         # field size
+         # temp_table_row = [profiles[p].name.split(" ")[3]]
+         field_size = int(round(float(profiles[p].scans[0].fields["FIELD_CROSSPLANE"]) / 100.0, 1) * 10.0)
+         temp_table_row = [f"{field_size}X{field_size}"]
          # for each profile's scan
          for s in range(len(measurement_depths)):
             # some usefult values to remove noise in the code
@@ -348,7 +355,7 @@ class Cacher:
             if float(temp_profile_scans[s].fields["SCAN_DEPTH"]) == measurement_depths[s]:
 
                # fill the cell with dose_at_zero + inflection points data
-               column_content = [round(dose_at_zero, 3)]
+               #column_content = [round(dose_at_zero, 3)]
                #for i in range(0, len(temp_profile_scans[s].inflection_points) - 1, 2):
                #   # d1 positions and doses
                #   column_content.append(round(temp_profile_scans[s].inflection_points[i][0] / 10.0, 3))
@@ -430,9 +437,9 @@ class Cacher:
                   measurement_depths.append(float(s.fields["SCAN_DEPTH"]))
          measurement_depths.sort()
 
-         # table stuff
          table = self.create_table(v, measurement_depths)
 
+         # writing produced table to output file
          tabextension = 12
          with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
             f.write("FS\td_cm\tini_bin\tbin\tD(0)\tp1d1sx\tD(p1d1sx)\tp1d1dx\tD(p1d1dx)\tp1d2sx\tp2d2sx\tD(p1d2sx)\tD(p2d2sx)\tp1d2dx\tp2d2dx\tD(p1d2dx)\tD(p2d2dx)\tp1d3sx\tp2d3sx\tp3d3sx\tD(p1d3sx)\tD(p2d3sx)\tD(p3d3sx)\tp1d3dx\tp2d3dx\tp3d3dx\tD(p1d3dx)\tD(p2d3dx)\tD(p3d3dx)\tD(IP-25)\toff25\tparams\n".expandtabs(tabextension))
