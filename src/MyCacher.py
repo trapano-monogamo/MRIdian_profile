@@ -110,11 +110,11 @@ class Scan:
 
       self.first_derivative = calc_derivative(self.pos_data, self.dose_data)
       self.orig_first_derivative = self.first_derivative[:]
-      initial_parameters = [
-         [max(self.first_derivative), -(abs(self.pos_data[0]) // 5 * 4), 20], # left fit
-         [min(self.first_derivative), self.pos_data[-1] // 5 * 4, 20], # right fit
-      ]
       try:
+         initial_parameters = [
+            [max(self.first_derivative), -(abs(self.pos_data[0]) // 5 * 4), 20], # left fit
+            [min(self.first_derivative), self.pos_data[-1] // 5 * 4, 20], # right fit
+         ]
          self.d1_left_fit_args, left_pcov = curve_fit(gauss, self.pos_data[:len(self.pos_data) // 2], self.first_derivative[:len(self.first_derivative) // 2], initial_parameters[0])
          self.d1_right_fit_args, right_pcov = curve_fit(gauss, self.pos_data[len(self.pos_data) // 2:], self.first_derivative[len(self.first_derivative) // 2:], initial_parameters[1])
       except:
