@@ -104,9 +104,10 @@ class Scan:
       self.orig_first_derivative = first_derivative[:]
 
       try:
+         peak_pos = pos_data[first_derivative.index(max(first_derivative))]
          initial_parameters = [
-            [max(first_derivative), pos_data[0] / 2.0, 10], # left fit
-            [min(first_derivative), pos_data[-1] / 2.0, 10], # right fit
+            [max(first_derivative), peak_pos, 10], # left fit
+            [min(first_derivative), -peak_pos, 10], # right fit
          ]
          self.d1_left_fit_args, left_pcov = curve_fit(gauss, pos_data[:len(pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
          self.d1_right_fit_args, right_pcov = curve_fit(gauss, pos_data[len(pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
@@ -248,7 +249,7 @@ class Profile:
       
       raw_data = []
 
-      print(f"{self.name}")
+      print(f"\n{self.name}")
 
       # create output profile subdirectory
       # in the output directory there will be a subdir for every profile (with
