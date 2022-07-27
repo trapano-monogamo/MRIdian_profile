@@ -114,15 +114,16 @@ class Scan:
       except:
          self.d1_left_fit_args = np.array([1,1,1])
          self.d1_right_fit_args = np.array([1,1,1])
-      print(f"""{
-               [list(map(round,initial_parameters[0],[5,5,5])), list(map(round,initial_parameters[1],[5,5,5]))]
-            }\t{
-               [list(map(round,self.d1_left_fit_args.tolist(),[5,5,5])), list(map(round,self.d1_right_fit_args.tolist(),[5,5,5]))]
-            }""".expandtabs(8))
 
       # half-bin correction
       self.d1_left_fit_args[1] += 0.25
       self.d1_right_fit_args[1] += 0.25
+
+      # print(f"""{
+      #          [list(map(round,initial_parameters[0],[5,5,5])), list(map(round,initial_parameters[1],[5,5,5]))]
+      #       }\t{
+      #          [list(map(round,self.d1_left_fit_args.tolist(),[5,5,5])), list(map(round,self.d1_right_fit_args.tolist(),[5,5,5]))]
+      #       }""".expandtabs(8))
 
       # discretizing derivatives
       first_derivative = [gauss(x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
