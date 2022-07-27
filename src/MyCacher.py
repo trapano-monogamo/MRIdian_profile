@@ -1,13 +1,13 @@
 # TODO: remove \t from Profile->raw_data, and avoid those horrible "\t\tSOMETHING"...
 
 import os
+import time
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from lmfit.models import GaussianModel
 from MyUtils import *
-
 
 
 
@@ -20,16 +20,19 @@ class Scan:
    fields: dict
    pos_data: list
    dose_data: list
+   init_bin: float
+   fin_bin: float
+   wanted_bin: float
+
+   # benchmarking
+   exec_time: float
 
    # calculated data
-   first_derivative: list
-   second_derivative: list
-   third_derivative: list
    inflection_points: list
    lt25mm: bool
+   dose_at_zero: float
    d1_left_fit_args: list
    d1_right_fit_args: list
-   binning: float
 
    # useful data
    profile_out_dir: str
@@ -37,18 +40,21 @@ class Scan:
    def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir, binning:float):
       self.scan_num = _scan_num
       self.fields = {}
-      self.pos_data = []
-      self.dose_data = []
-      self.first_derivative = []
-      self.second_derivative = []
-      self.third_derivative = []
       self.inflection_points = []
       self.lt25mm = False
       self.d1_left_fit_args: list
       self.d1_right_fit_args: list
       self.profile_out_dir = _profile_out_dir
-      self.binning = binning
+      self.init_bin = 0.0
+      self.fin_bin = 0.0
+      self.wanted_bin = binning
 
+      pos_data = []
+      dose_data = []
+
+      start_time = time.time()
+
+      # ..:: parsing ::..
       # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
       # once it is encountered, collect floats
       temp_complete_data = []
@@ -64,152 +70,115 @@ class Scan:
             while j != _end - 1:
                # removing empty strings (once separators) from list and cast the rest to floats
                nums = [e for e in _raw_data[j].split("\t") if e]
-               self.pos_data.append(float(nums[0]))
-               self.dose_data.append(float(nums[1]))
+               pos_data.append(float(nums[0]))
+               dose_data.append(float(nums[1]))
                j += 1
             # stop parsing
             break
          i += 1
 
-      self.produce_results()
-
-
-   def check_symmetry(self):
-      at_zero = self.pos_data.index(0.0)
-      for i in range(0, len(self.pos_data)):
-         if self.dose_data[i] != self.dose_data[(len(self.dose_data) - 1) - i]:
-            print(f"pos: {self.pos_data[i]} - dose: {self.dose_data[i]} : {self.dose_data[-i]}")
-
-
-   def apply_filter(self, data, filter_name, arg):
-      if filter_name == "moving_average":
-         return moving_average(data, arg)
-      elif filter_name == "median_filter":
-         return median_filter(data, arg)
-      # elif filter_name == "spline":
-      #    tck = splrep(self.pos_data[:-1], dataset_index,)
-      #    return splev(self.pos_data[:-1], tck).tolist()
-      else:
-         raise Exception("not yet implemented")
-
-
-   def process_data(self):
-      self.rebinned_pos_data = []
-      self.rebinned_dose_data = []
+      dose_at_zero_index = pos_data.index(0.0)
+      self.dose_at_zero = dose_data[dose_at_zero_index]
 
       # rebinning
-      current_binning = abs(self.pos_data[0] - self.pos_data[1])
-      for i in range(len(self.pos_data)):
+      rebinned_pos_data = []
+      rebinned_dose_data = []
+      self.init_bin = abs(pos_data[0] - pos_data[1])
+      # insert between every value and the next (if it exists) init_bin/wanted_bin number of interpolated points
+      for i in range(len(pos_data)):
          inext = i + 1
-         if inext == len(self.pos_data): break
+         if inext == len(pos_data): break # if there is no next point, stop before adding an excessive point
+         # start interpolation
          t = 0.0
          while t < 1.0:
-            self.rebinned_pos_data.append(lerp(self.pos_data[i], self.pos_data[inext], t))
-            self.rebinned_dose_data.append(lerp(self.dose_data[i], self.dose_data[inext], t))
-            t += (self.binning / current_binning)
+            rebinned_pos_data.append(lerp(pos_data[i], pos_data[inext], t))
+            rebinned_dose_data.append(lerp(dose_data[i], dose_data[inext], t))
+            # increment by right amount
+            t += (self.wanted_bin / self.init_bin)
+      self.fin_bin = abs(rebinned_pos_data[0] - rebinned_pos_data[1])
 
-      self.first_derivative = calc_derivative(self.pos_data, self.dose_data)
-      self.orig_first_derivative = self.first_derivative[:]
+      # ..:: fit ::..
+      # peak position is gaussian center, and peak value is f(center)
+      # with f beign gauss function with proper arguments for left and right fits
+      first_derivative = calc_derivative(pos_data, dose_data)
+      self.orig_first_derivative = first_derivative[:]
+
       try:
          initial_parameters = [
-            [max(self.first_derivative), -(abs(self.pos_data[0]) // 5 * 4), 20], # left fit
-            [min(self.first_derivative), self.pos_data[-1] // 5 * 4, 20], # right fit
+            [max(first_derivative), pos_data[0] / 2.0, 10], # left fit
+            [min(first_derivative), pos_data[-1] / 2.0, 10], # right fit
          ]
-         self.d1_left_fit_args, left_pcov = curve_fit(gauss, self.pos_data[:len(self.pos_data) // 2], self.first_derivative[:len(self.first_derivative) // 2], initial_parameters[0])
-         self.d1_right_fit_args, right_pcov = curve_fit(gauss, self.pos_data[len(self.pos_data) // 2:], self.first_derivative[len(self.first_derivative) // 2:], initial_parameters[1])
+         self.d1_left_fit_args, left_pcov = curve_fit(gauss, pos_data[:len(pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
+         self.d1_right_fit_args, right_pcov = curve_fit(gauss, pos_data[len(pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
       except:
          self.d1_left_fit_args = np.array([1,1,1])
          self.d1_right_fit_args = np.array([1,1,1])
+      print(f"""{
+               [list(map(round,initial_parameters[0],[5,5,5])), list(map(round,initial_parameters[1],[5,5,5]))]
+            }\t{
+               [list(map(round,self.d1_left_fit_args.tolist(),[5,5,5])), list(map(round,self.d1_right_fit_args.tolist(),[5,5,5]))]
+            }""".expandtabs(8))
+
+      # half-bin correction
       self.d1_left_fit_args[1] += 0.25
       self.d1_right_fit_args[1] += 0.25
-      self.first_derivative = [gauss(x, *self.d1_left_fit_args) for x in self.rebinned_pos_data[:len(self.rebinned_pos_data) // 2]]
-      self.first_derivative.extend([gauss(x, *self.d1_right_fit_args) for x in self.rebinned_pos_data[len(self.rebinned_pos_data) // 2:]])
 
-      # !!!
-      # peak position is gaussian center, and peak value is f(center)
-      # with f beign gauss function with proper arguments for left and right fits
+      # discretizing derivatives
+      first_derivative = [gauss(x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
+      first_derivative.extend([gauss(x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
+      second_derivative = [gauss_first_derivative(x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data)//2]]
+      second_derivative.extend([gauss_first_derivative(x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data)//2:]])
+      third_derivative = [gauss_second_derivative(x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data)//2]]
+      third_derivative.extend([gauss_second_derivative(x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data)//2:]])
 
-      # self.second_derivative = calc_derivative(self.pos_data, self.first_derivative)
-      self.second_derivative = [gauss_first_derivative(x, *self.d1_left_fit_args) for x in self.rebinned_pos_data[:len(self.rebinned_pos_data)//2]]
-      self.second_derivative.extend([gauss_first_derivative(x, *self.d1_right_fit_args) for x in self.rebinned_pos_data[len(self.rebinned_pos_data)//2:]])
+      # ..:: inflection points ::..
 
-      # self.third_derivative = calc_derivative(self.pos_data, self.second_derivative)
-      self.third_derivative = [gauss_second_derivative(x, *self.d1_left_fit_args) for x in self.rebinned_pos_data[:len(self.rebinned_pos_data)//2]]
-      self.third_derivative.extend([gauss_second_derivative(x, *self.d1_right_fit_args) for x in self.rebinned_pos_data[len(self.rebinned_pos_data)//2:]])
+      d1max1, d1maxi1, d1min1, d1mini1 = max_and_min_in_range(first_derivative, None, None)
 
-   def find_inflection_points(self):
-      self.process_data()
+      d2max1, d2maxi1, d2min1, d2mini1 = max_and_min_in_range(second_derivative, None, len(second_derivative) // 2)
+      d2max2, d2maxi2, d2min2, d2mini2 = max_and_min_in_range(second_derivative, len(second_derivative) // 2, None)
 
-      d1max1, d1maxi1, d1min1, d1mini1 = max_and_min_in_range(self.first_derivative, None, None)
+      d3max1, d3maxi1, d3min1, d3mini1 = max_and_min_in_range(third_derivative, None, d2mini1)
+      d3max2, d3maxi2, d3min2, d3mini2 = max_and_min_in_range(third_derivative, d2mini1, d2mini2)
+      d3max3, d3maxi3, d3min3, d3mini3 = max_and_min_in_range(third_derivative, d2mini2, None)
 
-      d2max1, d2maxi1, d2min1, d2mini1 = max_and_min_in_range(self.second_derivative, None, len(self.second_derivative) // 2)
-      d2max2, d2maxi2, d2min2, d2mini2 = max_and_min_in_range(self.second_derivative, len(self.second_derivative) // 2, None)
-
-      d3max1, d3maxi1, d3min1, d3mini1 = max_and_min_in_range(self.third_derivative, None, d2mini1)
-      d3max2, d3maxi2, d3min2, d3mini2 = max_and_min_in_range(self.third_derivative, d2mini1, d2mini2)
-      d3max3, d3maxi3, d3min3, d3mini3 = max_and_min_in_range(self.third_derivative, d2mini2, None)
-
-      # dose(pos(d1max) - 30)
+      # additional point: dose(pos(d1max) - 25) exists ? eq25mm : lt25mm
       dose_offset_point_data = [0, [0,0]]
       position_offset = 25.0
       try:
-         dose_offset_point_data = [ self.rebinned_pos_data[d1maxi1] - position_offset, [0, self.rebinned_dose_data[self.rebinned_pos_data.index(self.rebinned_pos_data[d1maxi1] - position_offset)]] ]
+         dose_offset_point_data = [ rebinned_pos_data[d1maxi1] - position_offset, [0, rebinned_dose_data[rebinned_pos_data.index(rebinned_pos_data[d1maxi1] - position_offset)]] ]
       except:
-         dose_offset_point_data = [ self.rebinned_pos_data[0], [0, self.rebinned_dose_data[0]] ]
+         dose_offset_point_data = [ rebinned_pos_data[0], [0, rebinned_dose_data[0]] ]
          self.lt25mm = True
 
-
       # save inflection points data: [pos, [derivative_value, data_value]]
-      # self.inflection_points = [
-      #    # d1
-      #    [ (self.rebinned_pos_data[d1maxi1] + self.rebinned_pos_data[d1maxi1 + 1]) / 2.0, [d1max1, (self.rebinned_dose_data[d1maxi1] + self.rebinned_dose_data[d1maxi1+1]) / 2.0] ],
-      #    [ (self.rebinned_pos_data[d1mini1] + self.rebinned_pos_data[d1mini1 + 1]) / 2.0, [d1min1, (self.rebinned_dose_data[d1mini1] + self.rebinned_dose_data[d1mini1+1]) / 2.0] ],
-      #    # d2
-      #    [ (self.rebinned_pos_data[d2maxi1] + self.rebinned_pos_data[d2maxi1 + 1]) / 2.0, [d2max1, (self.rebinned_dose_data[d2maxi1] + self.rebinned_dose_data[d2maxi1 + 1]) / 2.0] ],
-      #    [ (self.rebinned_pos_data[d2mini1] + self.rebinned_pos_data[d2mini1 + 1]) / 2.0, [d2min1, (self.rebinned_dose_data[d2mini1] + self.rebinned_dose_data[d2mini1 + 1]) / 2.0] ],
-      #    [ (self.rebinned_pos_data[d2mini2] + self.rebinned_pos_data[d2mini2 + 1]) / 2.0, [d2min2, (self.rebinned_dose_data[d2mini2] + self.rebinned_dose_data[d2mini2 + 1]) / 2.0] ],
-      #    [ (self.rebinned_pos_data[d2maxi2] + self.rebinned_pos_data[d2maxi2 + 1]) / 2.0, [d2max2, (self.rebinned_dose_data[d2maxi2] + self.rebinned_dose_data[d2maxi2 + 1]) / 2.0] ],
-      #    # d3
-      #    [ (self.rebinned_pos_data[d3maxi1] + self.rebinned_pos_data[d3maxi1 + 1]) / 2.0, [d3max1, (self.rebinned_dose_data[d3maxi1] + self.rebinned_dose_data[d3maxi1 + 1]) / 2.0] ],
-      #    [ (self.rebinned_pos_data[d3mini1] + self.rebinned_pos_data[d3mini1 + 1]) / 2.0, [d3min1, (self.rebinned_dose_data[d3mini1] + self.rebinned_dose_data[d3mini1 + 1]) / 2.0] ],
-      #    [ (self.rebinned_pos_data[d3maxi2] + self.rebinned_pos_data[d3maxi2 + 1]) / 2.0, [d3max2, (self.rebinned_dose_data[d3maxi2] + self.rebinned_dose_data[d3maxi2 + 1]) / 2.0] ],
-      #    [ (self.rebinned_pos_data[d3mini2] + self.rebinned_pos_data[d3mini2 + 1]) / 2.0, [d3min2, (self.rebinned_dose_data[d3mini2] + self.rebinned_dose_data[d3mini2 + 1]) / 2.0] ],
-      #    [ (self.rebinned_pos_data[d3maxi3] + self.rebinned_pos_data[d3maxi3 + 1]) / 2.0, [d3max3, (self.rebinned_dose_data[d3maxi3] + self.rebinned_dose_data[d3maxi3 + 1]) / 2.0] ],
-      #    [ (self.rebinned_pos_data[d3mini3] + self.rebinned_pos_data[d3mini3 + 1]) / 2.0, [d3min3, (self.rebinned_dose_data[d3mini3] + self.rebinned_dose_data[d3mini3 + 1]) / 2.0] ],
-      #    # additional points
-      #    dose_offset_point_data,
-      # ]
       self.inflection_points = [
          # d1
-         [ self.rebinned_pos_data[d1maxi1], [d1max1, self.rebinned_dose_data[d1maxi1]] ],
-         [ self.rebinned_pos_data[d1mini1], [d1min1, self.rebinned_dose_data[d1mini1]] ],
+         [ rebinned_pos_data[d1maxi1], [d1max1, rebinned_dose_data[d1maxi1]] ],
+         [ rebinned_pos_data[d1mini1], [d1min1, rebinned_dose_data[d1mini1]] ],
          # d2
-         [ self.rebinned_pos_data[d2maxi1], [d2max1, self.rebinned_dose_data[d2maxi1]] ],
-         [ self.rebinned_pos_data[d2mini1], [d2min1, self.rebinned_dose_data[d2mini1]] ],
-         [ self.rebinned_pos_data[d2mini2], [d2min2, self.rebinned_dose_data[d2mini2]] ],
-         [ self.rebinned_pos_data[d2maxi2], [d2max2, self.rebinned_dose_data[d2maxi2]] ],
+         [ rebinned_pos_data[d2maxi1], [d2max1, rebinned_dose_data[d2maxi1]] ],
+         [ rebinned_pos_data[d2mini1], [d2min1, rebinned_dose_data[d2mini1]] ],
+         [ rebinned_pos_data[d2mini2], [d2min2, rebinned_dose_data[d2mini2]] ],
+         [ rebinned_pos_data[d2maxi2], [d2max2, rebinned_dose_data[d2maxi2]] ],
          # d3
-         [ self.rebinned_pos_data[d3maxi1], [d3max1, self.rebinned_dose_data[d3maxi1]] ],
-         [ self.rebinned_pos_data[d3mini1], [d3min1, self.rebinned_dose_data[d3mini1]] ],
-         [ self.rebinned_pos_data[d3maxi2], [d3max2, self.rebinned_dose_data[d3maxi2]] ],
-         [ self.rebinned_pos_data[d3mini2], [d3min2, self.rebinned_dose_data[d3mini2]] ],
-         [ self.rebinned_pos_data[d3maxi3], [d3max3, self.rebinned_dose_data[d3maxi3]] ],
-         [ self.rebinned_pos_data[d3mini3], [d3min3, self.rebinned_dose_data[d3mini3]] ],
+         [ rebinned_pos_data[d3maxi1], [d3max1, rebinned_dose_data[d3maxi1]] ],
+         [ rebinned_pos_data[d3mini1], [d3min1, rebinned_dose_data[d3mini1]] ],
+         [ rebinned_pos_data[d3maxi2], [d3max2, rebinned_dose_data[d3maxi2]] ],
+         [ rebinned_pos_data[d3mini2], [d3min2, rebinned_dose_data[d3mini2]] ],
+         [ rebinned_pos_data[d3maxi3], [d3max3, rebinned_dose_data[d3maxi3]] ],
+         [ rebinned_pos_data[d3mini3], [d3min3, rebinned_dose_data[d3mini3]] ],
          # additional points
          dose_offset_point_data,
       ]
 
-      # print(f"pos: {self.inflection_points[0][0] == -self.inflection_points[1][0]}, deriv: {self.inflection_points[0][1][0] == -self.inflection_points[1][1][0]}, dose: {self.inflection_points[0][1][1] == self.inflection_points[1][1][1]}, filt: {pmaxi > intersections[0]},{pmini < intersections[1]}")
+      # ..:: plots ::..
 
-      # for i in range(len(self.pos_data)):
-      #    print(f"{self.pos_data[i]}, {self.dose_data_raw[i]}, {self.dose_data[i]}")
-
-
-
-   def output_plot(self):
+      # params
       marker_size = 5
       line_width = 0.8
 
+      # grouping inflection points for first and second scatter plots
       scatter_points_x = []
       scatter_points_y1 = []
       scatter_points_y2 = []
@@ -218,18 +187,17 @@ class Scan:
          scatter_points_y1.append(self.inflection_points[i][1][1])
          scatter_points_y2.append(self.inflection_points[i][1][0])
 
-      # plot components
       fig, ax = plt.subplots(2, 1)
 
-      ax[0].plot(self.pos_data, self.dose_data, c = "blue", linewidth = line_width)
+      ax[0].plot(pos_data, dose_data, c = "blue", linewidth = line_width)
       ax[0].scatter(scatter_points_x, scatter_points_y1, c = "black", s = marker_size, zorder = 9)
       ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker = "+", c = "cyan", zorder = 10)
       ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker = "+", c = "cyan", zorder = 10)
 
-      ax[1].plot(self.pos_data, self.orig_first_derivative, c = "blue", linewidth = line_width)
-      ax[1].plot(self.rebinned_pos_data, self.first_derivative, c = "red", linewidth = line_width)
-      ax[1].plot(self.rebinned_pos_data, self.second_derivative, c = "green", linewidth = line_width)
-      ax[1].plot(self.rebinned_pos_data, self.third_derivative, c = "purple", linewidth = line_width)
+      ax[1].plot(pos_data, self.orig_first_derivative, c = "blue", linewidth = line_width)
+      ax[1].plot(rebinned_pos_data, first_derivative, c = "red", linewidth = line_width)
+      ax[1].plot(rebinned_pos_data, second_derivative, c = "green", linewidth = line_width)
+      ax[1].plot(rebinned_pos_data, third_derivative, c = "purple", linewidth = line_width)
       ax[1].scatter(scatter_points_x, scatter_points_y2, c = "black", s = marker_size, zorder = 9)
       ax[1].scatter(self.inflection_points[0][0], self.inflection_points[0][1][0], marker = "+", c = "cyan", zorder = 10)
       ax[1].scatter(self.inflection_points[1][0], self.inflection_points[1][1][0], marker = "+", c = "cyan", zorder = 10)
@@ -237,11 +205,28 @@ class Scan:
       # save plot in the right profile subdirectory
       plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
       plt.close(fig)
-      
 
-   def produce_results(self):
-      self.find_inflection_points()
-      self.output_plot()
+      end_time = time.time()
+      self.exec_time = end_time - start_time
+
+
+   def check_symmetry(self):
+      at_zero = pos_data.index(0.0)
+      for i in range(0, len(pos_data)):
+         if dose_data[i] != dose_data[(len(dose_data) - 1) - i]:
+            print(f"pos: {pos_data[i]} - dose: {dose_data[i]} : {dose_data[-i]}")
+
+
+   def apply_filter(self, data, filter_name, arg):
+      if filter_name == "moving_average":
+         return moving_average(data, arg)
+      elif filter_name == "median_filter":
+         return median_filter(data, arg)
+      # elif filter_name == "spline":
+      #    tck = splrep(pos_data[:-1], dataset_index,)
+      #    return splev(pos_data[:-1], tck).tolist()
+      else:
+         raise Exception("not yet implemented")
 
 
 
@@ -348,8 +333,6 @@ class Cacher:
          for s in range(len(measurement_depths)):
             # some usefult values to remove noise in the code
             temp_profile_scans = profiles[p].scans
-            dose_at_zero_index = temp_profile_scans[s].pos_data.index(0.0)
-            dose_at_zero = temp_profile_scans[s].dose_data[dose_at_zero_index]
 
             # if this is the right measurement
             if float(temp_profile_scans[s].fields["SCAN_DEPTH"]) == measurement_depths[s]:
@@ -365,10 +348,10 @@ class Cacher:
 
                temp_table_row.append([
                   # binning
-                  round(abs(temp_profile_scans[s].pos_data[0] - temp_profile_scans[s].pos_data[1]), data_precision),
-                  round(abs(temp_profile_scans[s].rebinned_pos_data[0] - temp_profile_scans[s].rebinned_pos_data[1]), data_precision),
+                  round(temp_profile_scans[s].init_bin, data_precision),
+                  round(temp_profile_scans[s].fin_bin, data_precision),
                   # D(0)
-                  round(dose_at_zero, data_precision),
+                  round(temp_profile_scans[s].dose_at_zero, data_precision),
                   # d1: max
                   round(temp_profile_scans[s].inflection_points[0][0], data_precision),
                   round(temp_profile_scans[s].inflection_points[0][1][1], data_precision),

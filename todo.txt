@@ -1,2 +1,0 @@
-+ aggiungere parametri fit nella tabella
-+ ribinning a valore arbitrario, non a 1/n dell'originale
