@@ -2,14 +2,16 @@
 
 import os
 import time
+import threading
 import shutil
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from lmfit.models import GaussianModel
 from MyUtils import *
 
-
+mpl.use('Agg')
 
 # --- Scan ---
 # stores scan data and parameters in a dictionary.
@@ -24,10 +26,12 @@ class Scan:
    fin_bin: float
    wanted_bin: float
 
-   # benchmarking
-   exec_time: float
-
    # calculated data
+   first_derivative: list
+   second_derivative: list
+   third_derivative: list
+   rebinned_pos_data: list
+   rebinned_dose_data: list
    inflection_points: list
    lt25mm: bool
    dose_at_zero: float
@@ -51,8 +55,6 @@ class Scan:
 
       pos_data = []
       dose_data = []
-
-      start_time = time.time()
 
       # ..:: parsing ::..
       # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
@@ -174,7 +176,7 @@ class Scan:
          dose_offset_point_data,
       ]
 
-      # ..:: plots ::..
+      # ..:: plotting ::..
 
       # params
       marker_size = 5
@@ -208,9 +210,6 @@ class Scan:
       plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
       plt.close(fig)
 
-      end_time = time.time()
-      self.exec_time = end_time - start_time
-
 
    def check_symmetry(self):
       at_zero = pos_data.index(0.0)
@@ -243,14 +242,12 @@ class Profile:
    scans: list
    iso_field_size: str
 
-   def __init__(self, file_path: str, out_dir: str, binning: float):
+   def __init__(self, file_path: str, out_dir: str, binning: float, shared_profiles: list):
       self.name = file_path.split("/")[-1].replace(".mcc", "")
       self.iso_field_size = self.name.split(" ")[3]
       self.scans = []
       
       raw_data = []
-
-      print(f"\n{self.name}")
 
       # create output profile subdirectory
       # in the output directory there will be a subdir for every profile (with
@@ -283,6 +280,9 @@ class Profile:
             i = end_region_index
          i += 1
 
+      shared_profiles.append(self)
+      print(f"Ending: {self.name}")
+
 
 
 # --- Cacher ---
@@ -313,8 +313,15 @@ class Cacher:
             filelist.append(current_file_path)
 
       # create profile out of each file in filelist
+      threads = []
       for f in filelist:
-         self.profiles.append(Profile(f, self.out_dir, binning))
+         t = threading.Thread(target = Profile, args = (f, self.out_dir, binning, self.profiles, ))
+         print(f"Starting: {f.split('/')[-1][:-4]}")
+         t.start()
+         threads.append(t)
+         # self.profiles.append(Profile(f, self.out_dir, binning))
+      for t in threads:
+         t.join()
 
       self.output_tables()
       
