@@ -293,14 +293,10 @@ class Cacher:
    res_dir: str # where to find data
    out_dir: str # where to store data
 
-   # [!] filter faulty scans and log them to a file
-   faulty_scans_list: list
-
    def __init__(self, _res_dir: str, _out_dir: str, binning: float):
       self.profiles = []
       self.res_dir = _res_dir
       self.out_dir = _out_dir
-      self.faulty_scans_list = []
 
       if not os.path.exists(_out_dir):
          os.mkdir(_out_dir)
