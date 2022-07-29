@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 test     datasets    bin      time (s)
 1        MR+TB       0.1      72.82
 2        MR+TB       0.1      67.24
@@ -8,3 +9,15 @@ test     datasets    bin      time (s)
 7        MR+TB       0.01     141.28
 8        MR+TB       0.01     139.46
 9        MR+TB       0.001    997.67
+=======
+test  datasets    bin      time (s)
+1     MR+TB       0.1      43.19
+2     MR+TB       0.1      51.18
+3     MR+TB       0.1      40.27
+4     MR+TB       0.1      39.75
+5     MR+TB       0.01     105.63
+6     MR+TB       0.01     103.03
+7     MR+TB       0.01     104.10
+8     MR+TB       0.01     86.16
+9     MR+TB       0.01     711.52
+>>>>>>> multithreaded_implementation

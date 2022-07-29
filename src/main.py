@@ -1,17 +1,17 @@
 from MyCacher import *
+import multiprocessing
 import time
 
 def main():
    start_time = time.time()
 
-   Cacher(
-      "./res/MR_LINAC/",
-      f"./out/MR_LINAC/singlethreaded test 0.001mm/",
-      0.001)
-   Cacher(
-      "./res/TRUEBEAM/",
-      "./out/TRUEBEAM/singlethreaded test 0.001mm",
-      0.001)
+   p1 = multiprocessing.Process(target = Cacher, args = ("./res/MR_LINAC/", f"./out/MR_LINAC/multithreaded test 0.1mm/", 0.1))
+   p1.start()
+   p2 = multiprocessing.Process(target = Cacher, args = ("./res/TRUEBEAM/", "./out/TRUEBEAM/multithreaded test 0.1mm", 0.1))
+   p2.start()
+
+   p1.join()
+   p2.join()
 
    end_time = time.time()
    print(f"exec time: {end_time - start_time}")
