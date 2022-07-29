@@ -1,0 +1,9 @@
+test     datasets    bin      time (s)
+1        MR+TB       0.1      72.82
+2        MR+TB       0.1      67.24
+3        MR+TB       0.1      64.96
+4        MR+TB       0.1      63.13
+5        MR+TB       0.01     141.79
+6        MR+TB       0.01     144.81
+7        MR+TB       0.01     141.28
+8        MR+TB       0.01     139.46
