@@ -281,7 +281,7 @@ class Profile:
          i += 1
 
       shared_profiles.append(self)
-      print(f"Ending: {self.name}")
+      print(f"finishing: {self.name}")
 
 
 
@@ -312,7 +312,7 @@ class Cacher:
       threads = []
       for f in filelist:
          t = threading.Thread(target = Profile, args = (f, self.out_dir, binning, self.profiles, ))
-         print(f"Starting: {f.split('/')[-1][:-4]}")
+         print(f"starting: {f.split('/')[-1][:-4]}")
          t.start()
          threads.append(t)
          # self.profiles.append(Profile(f, self.out_dir, binning))
