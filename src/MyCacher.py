@@ -307,6 +307,7 @@ class Cacher:
          for _file in files:
             current_file_path = os.path.join(root,_file).replace("\\", "/")
             filelist.append(current_file_path)
+         break
 
       # create profile out of each file in filelist
       threads = []

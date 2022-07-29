@@ -5,9 +5,17 @@ import time
 def main():
    start_time = time.time()
 
-   p1 = multiprocessing.Process(target = Cacher, args = ("./res/MR_LINAC/", f"./out/MR_LINAC/multithreaded test 0.1mm/", 0.1))
+   # p1 = multiprocessing.Process(target = Cacher, args = ("./res/MR_LINAC/", f"./out/MR_LINAC/multithreaded test 0.1mm/", 0.1))
+   # p1.start()
+   # p2 = multiprocessing.Process(target = Cacher, args = ("./res/TRUEBEAM/", "./out/TRUEBEAM/multithreaded test 0.1mm", 0.1))
+   # p2.start()
+
+   # p1.join()
+   # p2.join()
+
+   p1 = multiprocessing.Process(target = Cacher, args = ("./res/TEST_PROFILE/", "./out/TEST_PROFILE 0.1mm/", 0.1))
    p1.start()
-   p2 = multiprocessing.Process(target = Cacher, args = ("./res/TRUEBEAM/", "./out/TRUEBEAM/multithreaded test 0.1mm", 0.1))
+   p2 = multiprocessing.Process(target = Cacher, args = ("./res/TEST_PROFILE/", "./out/TEST_PROFILE 0.001mm/", 0.001))
    p2.start()
 
    p1.join()
