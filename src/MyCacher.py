@@ -1,15 +1,12 @@
 # TODO: remove \t from Profile->raw_data, and avoid those horrible "\t\tSOMETHING"...
 
 import os
-import time
 import threading
-import shutil
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from lmfit.models import GaussianModel
-from MyUtils import *
+import MyUtils as utils
 
 mpl.use('Agg')
 
@@ -95,9 +92,9 @@ class Scan:
             # start interpolation
             t = 0.0
             while t < 1.0:
-                rebinned_pos_data.append(lerp(pos_data[i], pos_data[inext], t))
+                rebinned_pos_data.append(utils.lerp(pos_data[i], pos_data[inext], t))
                 rebinned_dose_data.append(
-                    lerp(dose_data[i], dose_data[inext], t))
+                    utils.lerp(dose_data[i], dose_data[inext], t))
                 # increment by right amount
                 t += (self.wanted_bin / self.init_bin)
         self.fin_bin = abs(rebinned_pos_data[0] - rebinned_pos_data[1])
@@ -105,7 +102,7 @@ class Scan:
         # ..:: fit ::..
         # peak position is gaussian center, and peak value is f(center)
         # with f beign gauss function with proper arguments for left and right fits
-        first_derivative = calc_derivative(pos_data, dose_data)
+        first_derivative = utils.calc_derivative(pos_data, dose_data)
         self.orig_first_derivative = first_derivative[:]
 
         try:
@@ -114,9 +111,9 @@ class Scan:
                 [max(first_derivative), peak_pos, 10],  # left fit
                 [min(first_derivative), -peak_pos, 10],  # right fit
             ]
-            self.d1_left_fit_args, left_pcov = curve_fit(gauss, pos_data[:len(
+            self.d1_left_fit_args, left_pcov = curve_fit(utils.gauss, pos_data[:len(
                 pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
-            self.d1_right_fit_args, right_pcov = curve_fit(gauss, pos_data[len(
+            self.d1_right_fit_args, right_pcov = curve_fit(utils.gauss, pos_data[len(
                 pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
         except:
             self.d1_left_fit_args = np.array([1, 1, 1])
@@ -133,34 +130,34 @@ class Scan:
         #       }""".expandtabs(8))
 
         # discretizing derivatives
-        first_derivative = [gauss(x, *self.d1_left_fit_args)
+        first_derivative = [utils.gauss(x, *self.d1_left_fit_args)
                             for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
-        first_derivative.extend([gauss(x, *self.d1_right_fit_args)
+        first_derivative.extend([utils.gauss(x, *self.d1_right_fit_args)
                                 for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
-        second_derivative = [gauss_first_derivative(
-            x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data)//2]]
-        second_derivative.extend([gauss_first_derivative(
-            x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data)//2:]])
-        third_derivative = [gauss_second_derivative(
-            x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data)//2]]
-        third_derivative.extend([gauss_second_derivative(
-            x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data)//2:]])
+        second_derivative = [utils.gauss_first_derivative(
+            x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
+        second_derivative.extend([utils.gauss_first_derivative(
+            x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
+        third_derivative = [utils.gauss_second_derivative(
+            x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
+        third_derivative.extend([utils.gauss_second_derivative(
+            x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
 
         # ..:: inflection points ::..
 
-        d1max1, d1maxi1, d1min1, d1mini1 = max_and_min_in_range(
+        d1max1, d1maxi1, d1min1, d1mini1 = utils.max_and_min_in_range(
             first_derivative, None, None)
 
-        d2max1, d2maxi1, d2min1, d2mini1 = max_and_min_in_range(
+        d2max1, d2maxi1, d2min1, d2mini1 = utils.max_and_min_in_range(
             second_derivative, None, len(second_derivative) // 2)
-        d2max2, d2maxi2, d2min2, d2mini2 = max_and_min_in_range(
+        d2max2, d2maxi2, d2min2, d2mini2 = utils.max_and_min_in_range(
             second_derivative, len(second_derivative) // 2, None)
 
-        d3max1, d3maxi1, d3min1, d3mini1 = max_and_min_in_range(
+        d3max1, d3maxi1, d3min1, d3mini1 = utils.max_and_min_in_range(
             third_derivative, None, d2mini1)
-        d3max2, d3maxi2, d3min2, d3mini2 = max_and_min_in_range(
+        d3max2, d3maxi2, d3min2, d3mini2 = utils.max_and_min_in_range(
             third_derivative, d2mini1, d2mini2)
-        d3max3, d3maxi3, d3min3, d3mini3 = max_and_min_in_range(
+        d3max3, d3maxi3, d3min3, d3mini3 = utils.max_and_min_in_range(
             third_derivative, d2mini2, None)
 
         # additional point: dose(pos(d1max) - 25) exists ? eq25mm : lt25mm
@@ -239,18 +236,11 @@ class Scan:
         plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
         plt.close(fig)
 
-    def check_symmetry(self):
-        at_zero = pos_data.index(0.0)
-        for i in range(0, len(pos_data)):
-            if dose_data[i] != dose_data[(len(dose_data) - 1) - i]:
-                print(
-                    f"pos: {pos_data[i]} - dose: {dose_data[i]} : {dose_data[-i]}")
-
     def apply_filter(self, data, filter_name, arg):
         if filter_name == "moving_average":
-            return moving_average(data, arg)
+            return utils.moving_average(data, arg)
         elif filter_name == "median_filter":
-            return median_filter(data, arg)
+            return utils.median_filter(data, arg)
         # elif filter_name == "spline":
         #    tck = splrep(pos_data[:-1], dataset_index,)
         #    return splev(pos_data[:-1], tck).tolist()
@@ -372,7 +362,7 @@ class Cacher:
                 if float(temp_profile_scans[s].fields["SCAN_DEPTH"]) == measurement_depths[s]:
 
                     # fill the cell with dose_at_zero + inflection points data
-                    #column_content = [round(dose_at_zero, 3)]
+                    # column_content = [round(dose_at_zero, 3)]
                     # for i in range(0, len(temp_profile_scans[s].inflection_points) - 1, 2):
                     #   # d1 positions and doses
                     #   column_content.append(round(temp_profile_scans[s].inflection_points[i][0] / 10.0, 3))
