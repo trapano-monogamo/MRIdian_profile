@@ -2,9 +2,6 @@ from MyCacher import *
 import multiprocessing
 import time
 
-# hello
-
-
 def main():
     start_time = time.time()
 
