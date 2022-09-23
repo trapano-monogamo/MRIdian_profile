@@ -1,3 +1,3 @@
-Scripts\activate
+CALL Scripts\activate
 python src\main.py
-Scripts\deactivate
+CALL Scripts\deactivate
