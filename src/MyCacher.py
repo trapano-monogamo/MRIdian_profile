@@ -375,68 +375,42 @@ class Cacher:
                         round(temp_profile_scans[s].init_bin, data_precision),
                         round(temp_profile_scans[s].fin_bin, data_precision),
                         # D(0)
-                        round(
-                            temp_profile_scans[s].dose_at_zero, data_precision),
+                        round(temp_profile_scans[s].dose_at_zero, data_precision),
                         # d1: max
-                        round(
-                            temp_profile_scans[s].inflection_points[0][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[0][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[0][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[0][1][1], data_precision),
                         # d1: min
-                        round(
-                            temp_profile_scans[s].inflection_points[1][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[1][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[1][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[1][1][1], data_precision),
                         # d2: max1, min1
-                        round(
-                            temp_profile_scans[s].inflection_points[2][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[3][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[2][1][1], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[3][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[2][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[3][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[2][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[3][1][1], data_precision),
                         # d2: min2, max2
-                        round(
-                            temp_profile_scans[s].inflection_points[4][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[5][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[4][1][1], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[5][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[4][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[5][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[4][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[5][1][1], data_precision),
                         # d3: max1, min1, max2
-                        round(
-                            temp_profile_scans[s].inflection_points[6][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[7][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[8][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[6][1][1], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[7][1][1], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[8][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[6][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[7][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[8][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[6][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[7][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[8][1][1], data_precision),
                         # d3: min2, max3, min3
-                        round(
-                            temp_profile_scans[s].inflection_points[9][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[10][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[11][0], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[9][1][1], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[10][1][1], data_precision),
-                        round(
-                            temp_profile_scans[s].inflection_points[11][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[9][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[10][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[11][0], data_precision),
+                        round(temp_profile_scans[s].inflection_points[9][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[10][1][1], data_precision),
+                        round(temp_profile_scans[s].inflection_points[11][1][1], data_precision),
                         # additional points
-                        round(
-                            temp_profile_scans[s].inflection_points[-1][1][1] / 10.0, data_precision),
+                        round(temp_profile_scans[s].inflection_points[-1][1][1] / 10.0, data_precision),
                         "lt25" if temp_profile_scans[s].lt25mm else "eq25",
-                        *[round(n, data_precision) for n in temp_profile_scans[s].d1_left_fit_args.tolist()
-                          + temp_profile_scans[s].d1_right_fit_args.tolist()],
+                            *[round(n, data_precision) for n in temp_profile_scans[s].d1_left_fit_args.tolist()
+                                + temp_profile_scans[s].d1_right_fit_args.tolist()],
                     ])
 
                     # append the cell to the row
