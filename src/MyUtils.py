@@ -1,5 +1,7 @@
 from scipy.signal import find_peaks, medfilt
 from scipy.interpolate import splrep, splev
+from scipy.integrate import quad
+import scipy
 import numpy as np
 import statistics
 import math
@@ -106,13 +108,44 @@ def transpose_table(table):
         result.append(row)
     return result
 
-def gauss(x, amp, cen, wid):
+
+def __skew_normal_exp(x, a, b, c, d):
+    # if not (isinstance(x, float) or isinstance(x, np.float64)):
+    #     res = []
+    #     for z in x:
+    #         res.append((1.0 / np.sqrt(2.0 * np.pi)) * np.exp(-(1.0 / 2.0) * (z ** 2.0)))
+    #     return res
+    # else:
+    return (1.0 / np.sqrt(2.0 * np.pi)) * np.exp(-(1.0 / 1.0) * (x ** 2.0) * a)
+
+def __skew_normal_int(x, a, b, c, d):
+    # return quad(__skew_normal_exp, -np.inf, x, args=(a,b,c))[0]
+    # if not (isinstance(x, float) or isinstance(x, np.float64)):
+    #     res = []
+    #     for z in x:
+    #         res.append(quad(__skew_normal_exp, -np.inf, z, args=(a, b, c)))
+    #     return res
+    # else:
+    return quad(__skew_normal_exp, -np.inf, x, args=(a, b, c, d))[0]
+
+def skew_normal(x, a, b, c, d):
+    # return (2.0 / a) * __skew_normal_exp((x - b) / a, a, b, c) * __skew_normal_int(c * ((x - b) / a), a, b, c)
+    if not (isinstance(x, float) or isinstance(x, np.float64)):
+        res = []
+        for z in x:
+            res.append(((2.0 / a) * __skew_normal_exp((z - b) / a, a, b, c, d) * __skew_normal_int(c * ((z - b) / a), a, b, c, d)))
+        return res
+    else:
+        return ((2.0 / a) * __skew_normal_exp((x - b) / (d * a), a, b, c, d) * __skew_normal_int(c * ((x - b) / (d * a)), a, b, c, d))
+
+
+def gauss(x, amp, cen, wid, d):
     return amp * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2))
 
-def gauss_first_derivative(x, amp, cen, wid):
+def gauss_first_derivative(x, amp, cen, wid, d):
     return -amp * (x - cen) * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2.0)) / wid ** 2.0
 
-def gauss_second_derivative(x, amp, cen, wid):
+def gauss_second_derivative(x, amp, cen, wid, d):
     return amp * (x ** 2.0 - 2 * cen * x - wid ** 2.0 + cen ** 2.0) * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2.0)) / wid ** 4.0
 
 def lerp(v0, v1, t):
