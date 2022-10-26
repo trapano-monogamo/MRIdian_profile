@@ -110,17 +110,15 @@ class Scan:
             initial_parameters = [
                 # [max(first_derivative), peak_pos, 10, 0],  # left fit
                 # [min(first_derivative), -peak_pos, 10, 0],  # right fit
-                [0.1, peak_pos, 3.0, -peak_pos / 2.0 / 2.0, max(first_derivative)],  # left fit
-                [0.1, -peak_pos, 3.0, peak_pos / 2.0, min(first_derivative)],  # right fit
+                [0.05, peak_pos, 3.0, -peak_pos / 2.0, max(first_derivative)],  # left fit
+                [0.05, -peak_pos, 3.0, peak_pos / 2.0, max(first_derivative)],  # right fit
             ]
             # self.d1_left_fit_args, left_pcov = curve_fit(utils.gauss, pos_data[:len(
             #     pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
             # self.d1_right_fit_args, right_pcov = curve_fit(utils.gauss, pos_data[len(
             #     pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
-            self.d1_left_fit_args, left_pcov = curve_fit(utils.skew_normal_fit, pos_data[:len(
-                pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
-            self.d1_right_fit_args, right_pcov = curve_fit(utils.skew_normal_fit, pos_data[len(
-                pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
+            self.d1_left_fit_args, left_pcov = curve_fit(utils.skew_normal_fit, pos_data[:len(pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
+            self.d1_right_fit_args, right_pcov = curve_fit(utils.skew_normal_fit, pos_data[len(pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
         except Exception as e:
             print(f"[error]: {e}")
             self.d1_left_fit_args = np.array([1, 1, 1, 1, 1])
