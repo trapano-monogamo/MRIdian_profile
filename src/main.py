@@ -15,11 +15,11 @@ def main():
 
     p1 = multiprocessing.Process(target=Cacher, args=("./res/processed_x_y/", "./out/TEST_PROFILE 0.1mm/", 0.1))
     p1.start()
-    p2 = multiprocessing.Process(target=Cacher, args=("./res/processed_x_y/", "./out/TEST_PROFILE 0.1mm/", 0.1))
-    p2.start()
+    # p2 = multiprocessing.Process(target=Cacher, args=("./res/processed_x_y/", "./out/TEST_PROFILE 0.1mm/", 0.1))
+    # p2.start()
 
     p1.join()
-    p2.join()
+    # p2.join()
 
     end_time = time.time()
     print(f"exec time: {end_time - start_time}")
