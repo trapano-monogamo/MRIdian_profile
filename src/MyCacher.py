@@ -111,7 +111,7 @@ class Scan:
                 # [max(first_derivative), peak_pos, 10, 0],  # left fit
                 # [min(first_derivative), -peak_pos, 10, 0],  # right fit
                 [0.05, peak_pos, 3.0, -peak_pos / 2.0, max(first_derivative)],  # left fit
-                [0.05, -peak_pos, 3.0, peak_pos / 2.0, max(first_derivative)],  # right fit
+                [-0.05, -peak_pos, -3.0, -peak_pos / 2.0, max(first_derivative)],  # right fit
             ]
             # self.d1_left_fit_args, left_pcov = curve_fit(utils.gauss, pos_data[:len(
             #     pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
