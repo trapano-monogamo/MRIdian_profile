@@ -77,7 +77,11 @@ class Scan:
                 break
             i += 1
 
-        dose_at_zero_index = pos_data.index(0.0)
+        try:
+            dose_at_zero_index = pos_data.index(0.0)
+        except:
+            print(f"[{_profile_out_dir}/{self.scan_num}]: no 0.0 position")
+            dose_at_zero_index = len(pos_data) // 2
         self.dose_at_zero = dose_data[dose_at_zero_index]
 
         # rebinning
