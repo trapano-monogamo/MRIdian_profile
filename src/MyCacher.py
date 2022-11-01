@@ -137,27 +137,25 @@ class Scan:
         # discretizing derivatives
         first_derivative = [utils.skew_normal(x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
         first_derivative.extend([utils.skew_normal(x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
-        second_derivative = [utils.gauss_first_derivative( x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
-        second_derivative.extend([utils.gauss_first_derivative( x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
-        third_derivative = [utils.gauss_second_derivative( x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
-        third_derivative.extend([utils.gauss_second_derivative( x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
+
+        second_derivative = utils.calc_derivative(rebinned_pos_data, first_derivative)
+        third_derivative = utils.calc_derivative(rebinned_pos_data, second_derivative)
+
+        # second_derivative = [utils.gauss_first_derivative( x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
+        # second_derivative.extend([utils.gauss_first_derivative( x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
+        # third_derivative = [utils.gauss_second_derivative( x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
+        # third_derivative.extend([utils.gauss_second_derivative( x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
 
         # ..:: inflection points ::..
 
-        d1max1, d1maxi1, d1min1, d1mini1 = utils.max_and_min_in_range(
-            first_derivative, None, None)
+        d1max1, d1maxi1, d1min1, d1mini1 = utils.max_and_min_in_range(first_derivative, None, None)
 
-        d2max1, d2maxi1, d2min1, d2mini1 = utils.max_and_min_in_range(
-            second_derivative, None, len(second_derivative) // 2)
-        d2max2, d2maxi2, d2min2, d2mini2 = utils.max_and_min_in_range(
-            second_derivative, len(second_derivative) // 2, None)
+        d2max1, d2maxi1, d2min1, d2mini1 = utils.max_and_min_in_range(second_derivative, None, len(second_derivative) // 2)
+        d2max2, d2maxi2, d2min2, d2mini2 = utils.max_and_min_in_range(second_derivative, len(second_derivative) // 2, None)
 
-        d3max1, d3maxi1, d3min1, d3mini1 = utils.max_and_min_in_range(
-            third_derivative, None, d2mini1)
-        d3max2, d3maxi2, d3min2, d3mini2 = utils.max_and_min_in_range(
-            third_derivative, d2mini1, d2mini2)
-        d3max3, d3maxi3, d3min3, d3mini3 = utils.max_and_min_in_range(
-            third_derivative, d2mini2, None)
+        d3max1, d3maxi1, d3min1, d3mini1 = utils.max_and_min_in_range(third_derivative, None, d2mini1)
+        d3max2, d3maxi2, d3min2, d3mini2 = utils.max_and_min_in_range(third_derivative, d2mini1, d2mini2)
+        d3max3, d3maxi3, d3min3, d3mini3 = utils.max_and_min_in_range(third_derivative, d2mini2, None)
 
         # additional point: dose(pos(d1max) - 25) exists ? eq25mm : lt25mm
         dose_offset_point_data = [0, [0, 0]]

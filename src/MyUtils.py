@@ -69,9 +69,7 @@ def calc_derivative(x: list, y: list):
         else:
             # calculate incremental ratio between current data point and next (the last point in the set gets excluded):
             # dy / dx = (dose[i] - dose[inext]) / (pos[i] - pos[inext])
-            derivative.append(
-                (y[i] - y[inext]) / (x[i] - x[inext])
-            )
+            derivative.append((y[i] - y[inext]) / (x[i] - x[inext]))
     derivative.append(derivative[-1])
     return derivative
 
