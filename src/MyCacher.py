@@ -21,7 +21,7 @@ class Scan:
     pos_data: list
     dose_data: list
     init_bin: float
-    fin_bin: float
+    target_bin: float
     wanted_bin: float
 
     # calculated data
@@ -48,7 +48,7 @@ class Scan:
         self.d1_right_fit_args: list
         self.profile_out_dir = _profile_out_dir
         self.init_bin = 0.0
-        self.fin_bin = 0.0
+        self.target_bin = 0.0
         self.wanted_bin = binning
 
         pos_data = []
@@ -101,7 +101,7 @@ class Scan:
                     utils.lerp(dose_data[i], dose_data[inext], t))
                 # increment by right amount
                 t += (self.wanted_bin / self.init_bin)
-        self.fin_bin = abs(rebinned_pos_data[0] - rebinned_pos_data[1])
+        self.target_bin = abs(rebinned_pos_data[0] - rebinned_pos_data[1])
 
         # ..:: fit ::..
         # peak position is gaussian center, and peak value is f(center)
@@ -117,10 +117,8 @@ class Scan:
                 [0.05, peak_pos, 3.0, -peak_pos / 2.0, max(first_derivative)],  # left fit
                 [-0.05, -peak_pos, -3.0, -peak_pos / 2.0, max(first_derivative)],  # right fit
             ]
-            # self.d1_left_fit_args, left_pcov = curve_fit(utils.gauss, pos_data[:len(
-            #     pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
-            # self.d1_right_fit_args, right_pcov = curve_fit(utils.gauss, pos_data[len(
-            #     pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
+            # self.d1_left_fit_args, left_pcov = curve_fit(utils.gauss, pos_data[:len( pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
+            # self.d1_right_fit_args, right_pcov = curve_fit(utils.gauss, pos_data[len( pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
             self.d1_left_fit_args, left_pcov = curve_fit(utils.skew_normal_fit, pos_data[:len(pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
             self.d1_right_fit_args, right_pcov = curve_fit(utils.skew_normal_fit, pos_data[len(pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
         except Exception as e:
@@ -128,9 +126,9 @@ class Scan:
             self.d1_left_fit_args = np.array([1, 1, 1, 1, 1])
             self.d1_right_fit_args = np.array([1, 1, 1, 1, 1])
 
-        # half-bin correction
-        self.d1_left_fit_args[1] += 0.25
-        self.d1_right_fit_args[1] += 0.25
+        # half-bin correction (0.25mm)
+        self.d1_left_fit_args[1] += (self.target_bin / 2.0)
+        self.d1_right_fit_args[1] += (self.target_bin / 2.0)
 
         # print(f"""{
         #          [list(map(round,initial_parameters[0],[5,5,5])), list(map(round,initial_parameters[1],[5,5,5]))]
@@ -177,18 +175,21 @@ class Scan:
             # d1
             [rebinned_pos_data[d1maxi1], [d1max1, rebinned_dose_data[d1maxi1]]],
             [rebinned_pos_data[d1mini1], [d1min1, rebinned_dose_data[d1mini1]]],
+
             # d2
-            [rebinned_pos_data[d2maxi1], [d2max1, rebinned_dose_data[d2maxi1]]],
-            [rebinned_pos_data[d2mini1], [d2min1, rebinned_dose_data[d2mini1]]],
-            [rebinned_pos_data[d2mini2], [d2min2, rebinned_dose_data[d2mini2]]],
-            [rebinned_pos_data[d2maxi2], [d2max2, rebinned_dose_data[d2maxi2]]],
+            [(rebinned_pos_data[d2maxi1] + rebinned_pos_data[d2maxi1 + 1]) / 2.0, [d2max1, (rebinned_dose_data[d2maxi1] + rebinned_dose_data[d2maxi1 + 1]) / 2.0]],
+            [(rebinned_pos_data[d2mini1] + rebinned_pos_data[d2mini1 + 1]) / 2.0, [d2min1, (rebinned_dose_data[d2mini1] + rebinned_dose_data[d2mini1 + 1]) / 2.0]],
+            [(rebinned_pos_data[d2mini2] + rebinned_pos_data[d2mini2 + 1]) / 2.0, [d2min2, (rebinned_dose_data[d2mini2] + rebinned_dose_data[d2mini2 + 1]) / 2.0]],
+            [(rebinned_pos_data[d2maxi2] + rebinned_pos_data[d2maxi2 + 1]) / 2.0, [d2max2, (rebinned_dose_data[d2maxi2] + rebinned_dose_data[d2maxi2 + 1]) / 2.0]],
+
             # d3
-            [rebinned_pos_data[d3maxi1], [d3max1, rebinned_dose_data[d3maxi1]]],
-            [rebinned_pos_data[d3mini1], [d3min1, rebinned_dose_data[d3mini1]]],
-            [rebinned_pos_data[d3maxi2], [d3max2, rebinned_dose_data[d3maxi2]]],
-            [rebinned_pos_data[d3mini2], [d3min2, rebinned_dose_data[d3mini2]]],
-            [rebinned_pos_data[d3maxi3], [d3max3, rebinned_dose_data[d3maxi3]]],
-            [rebinned_pos_data[d3mini3], [d3min3, rebinned_dose_data[d3mini3]]],
+            [rebinned_pos_data[d3maxi1 + 1], [d3max1, rebinned_dose_data[d3maxi1 + 1]]],
+            [rebinned_pos_data[d3mini1 + 1], [d3min1, rebinned_dose_data[d3mini1 + 1]]],
+            [rebinned_pos_data[d3maxi2 + 1], [d3max2, rebinned_dose_data[d3maxi2 + 1]]],
+            [rebinned_pos_data[d3mini2 + 1], [d3min2, rebinned_dose_data[d3mini2 + 1]]],
+            [rebinned_pos_data[d3maxi3 + 1], [d3max3, rebinned_dose_data[d3maxi3 + 1]]],
+            [rebinned_pos_data[d3mini3 + 1], [d3min3, rebinned_dose_data[d3mini3 + 1]]],
+
             # additional points
             dose_offset_point_data,
         ]
@@ -374,7 +375,7 @@ class Cacher:
                     temp_table_row.append([
                         # binning
                         round(temp_profile_scans[s].init_bin, data_precision),
-                        round(temp_profile_scans[s].fin_bin, data_precision),
+                        round(temp_profile_scans[s].target_bin, data_precision),
                         # D(0)
                         round(temp_profile_scans[s].dose_at_zero, data_precision),
                         # d1: max
