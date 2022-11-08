@@ -127,8 +127,8 @@ class Scan:
             self.d1_right_fit_args = np.array([1, 1, 1, 1, 1])
 
         # half-bin correction (0.25mm)
-        # self.d1_left_fit_args[1] += (self.target_bin / 2.0)
-        # self.d1_right_fit_args[1] += (self.target_bin / 2.0)
+        self.d1_left_fit_args[1] += (self.target_bin / 2.0)
+        self.d1_right_fit_args[1] += (self.target_bin / 2.0)
 
         # print(f"""{
         #          [list(map(round,initial_parameters[0],[5,5,5])), list(map(round,initial_parameters[1],[5,5,5]))]
