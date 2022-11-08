@@ -3,9 +3,11 @@ import multiprocessing
 import time
 
 def main():
+    data_package = "TRUEBEAM"
+
     start_time = time.time()
 
-    p1 = multiprocessing.Process(target=Cacher, args=("./res/Y_Fields/", "./out/Y_Fields/", 0.1))
+    p1 = multiprocessing.Process(target=Cacher, args=(f"./res/{data_package}/", f"./out/{data_package}/test", 0.1))
     p1.start()
 
     p1.join()
