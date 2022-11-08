@@ -171,51 +171,51 @@ class Scan:
             self.lt25mm = True
 
         # save inflection points data: [pos, [derivative_value, data_value]]
-        # self.inflection_points = [
-        #     # d1
-        #     [rebinned_pos_data[d1maxi1], [d1max1, rebinned_dose_data[d1maxi1]]],
-        #     [rebinned_pos_data[d1mini1], [d1min1, rebinned_dose_data[d1mini1]]],
-
-        #     # d2
-        #     [(rebinned_pos_data[d2maxi1] + rebinned_pos_data[d2maxi1 + 1]) / 2.0, [d2max1, (rebinned_dose_data[d2maxi1] + rebinned_dose_data[d2maxi1 + 1]) / 2.0]],
-        #     [(rebinned_pos_data[d2mini1] + rebinned_pos_data[d2mini1 + 1]) / 2.0, [d2min1, (rebinned_dose_data[d2mini1] + rebinned_dose_data[d2mini1 + 1]) / 2.0]],
-        #     [(rebinned_pos_data[d2mini2] + rebinned_pos_data[d2mini2 + 1]) / 2.0, [d2min2, (rebinned_dose_data[d2mini2] + rebinned_dose_data[d2mini2 + 1]) / 2.0]],
-        #     [(rebinned_pos_data[d2maxi2] + rebinned_pos_data[d2maxi2 + 1]) / 2.0, [d2max2, (rebinned_dose_data[d2maxi2] + rebinned_dose_data[d2maxi2 + 1]) / 2.0]],
-
-        #     # d3
-        #     [rebinned_pos_data[d3maxi1 + 1], [d3max1, rebinned_dose_data[d3maxi1 + 1]]],
-        #     [rebinned_pos_data[d3mini1 + 1], [d3min1, rebinned_dose_data[d3mini1 + 1]]],
-        #     [rebinned_pos_data[d3maxi2 + 1], [d3max2, rebinned_dose_data[d3maxi2 + 1]]],
-        #     [rebinned_pos_data[d3mini2 + 1], [d3min2, rebinned_dose_data[d3mini2 + 1]]],
-        #     [rebinned_pos_data[d3maxi3 + 1], [d3max3, rebinned_dose_data[d3maxi3 + 1]]],
-        #     [rebinned_pos_data[d3mini3 + 1], [d3min3, rebinned_dose_data[d3mini3 + 1]]],
-
-        #     # additional points
-        #     dose_offset_point_data,
-        # ]
-
         self.inflection_points = [
             # d1
             [rebinned_pos_data[d1maxi1], [d1max1, rebinned_dose_data[d1maxi1]]],
             [rebinned_pos_data[d1mini1], [d1min1, rebinned_dose_data[d1mini1]]],
 
             # d2
-            [rebinned_pos_data[d2maxi1], [d2max1, rebinned_dose_data[d2maxi1]]],
-            [rebinned_pos_data[d2mini1], [d2min1, rebinned_dose_data[d2mini1]]],
-            [rebinned_pos_data[d2mini2], [d2min2, rebinned_dose_data[d2mini2]]],
-            [rebinned_pos_data[d2maxi2], [d2max2, rebinned_dose_data[d2maxi2]]],
+            [(rebinned_pos_data[d2maxi1] + rebinned_pos_data[d2maxi1 + 1]) / 2.0, [d2max1, (rebinned_dose_data[d2maxi1] + rebinned_dose_data[d2maxi1 + 1]) / 2.0]],
+            [(rebinned_pos_data[d2mini1] + rebinned_pos_data[d2mini1 + 1]) / 2.0, [d2min1, (rebinned_dose_data[d2mini1] + rebinned_dose_data[d2mini1 + 1]) / 2.0]],
+            [(rebinned_pos_data[d2mini2] + rebinned_pos_data[d2mini2 + 1]) / 2.0, [d2min2, (rebinned_dose_data[d2mini2] + rebinned_dose_data[d2mini2 + 1]) / 2.0]],
+            [(rebinned_pos_data[d2maxi2] + rebinned_pos_data[d2maxi2 + 1]) / 2.0, [d2max2, (rebinned_dose_data[d2maxi2] + rebinned_dose_data[d2maxi2 + 1]) / 2.0]],
 
             # d3
-            [rebinned_pos_data[d3maxi1], [d3max1, rebinned_dose_data[d3maxi1]]],
-            [rebinned_pos_data[d3mini1], [d3min1, rebinned_dose_data[d3mini1]]],
-            [rebinned_pos_data[d3maxi2], [d3max2, rebinned_dose_data[d3maxi2]]],
-            [rebinned_pos_data[d3mini2], [d3min2, rebinned_dose_data[d3mini2]]],
-            [rebinned_pos_data[d3maxi3], [d3max3, rebinned_dose_data[d3maxi3]]],
-            [rebinned_pos_data[d3mini3], [d3min3, rebinned_dose_data[d3mini3]]],
+            [rebinned_pos_data[d3maxi1 + 1], [d3max1, rebinned_dose_data[d3maxi1 + 1]]],
+            [rebinned_pos_data[d3mini1 + 1], [d3min1, rebinned_dose_data[d3mini1 + 1]]],
+            [rebinned_pos_data[d3maxi2 + 1], [d3max2, rebinned_dose_data[d3maxi2 + 1]]],
+            [rebinned_pos_data[d3mini2 + 1], [d3min2, rebinned_dose_data[d3mini2 + 1]]],
+            [rebinned_pos_data[d3maxi3 + 1], [d3max3, rebinned_dose_data[d3maxi3 + 1]]],
+            [rebinned_pos_data[d3mini3 + 1], [d3min3, rebinned_dose_data[d3mini3 + 1]]],
 
             # additional points
             dose_offset_point_data,
         ]
+
+        # self.inflection_points = [
+        #     # d1
+        #     [rebinned_pos_data[d1maxi1], [d1max1, rebinned_dose_data[d1maxi1]]],
+        #     [rebinned_pos_data[d1mini1], [d1min1, rebinned_dose_data[d1mini1]]],
+
+        #     # d2
+        #     [rebinned_pos_data[d2maxi1], [d2max1, rebinned_dose_data[d2maxi1]]],
+        #     [rebinned_pos_data[d2mini1], [d2min1, rebinned_dose_data[d2mini1]]],
+        #     [rebinned_pos_data[d2mini2], [d2min2, rebinned_dose_data[d2mini2]]],
+        #     [rebinned_pos_data[d2maxi2], [d2max2, rebinned_dose_data[d2maxi2]]],
+
+        #     # d3
+        #     [rebinned_pos_data[d3maxi1], [d3max1, rebinned_dose_data[d3maxi1]]],
+        #     [rebinned_pos_data[d3mini1], [d3min1, rebinned_dose_data[d3mini1]]],
+        #     [rebinned_pos_data[d3maxi2], [d3max2, rebinned_dose_data[d3maxi2]]],
+        #     [rebinned_pos_data[d3mini2], [d3min2, rebinned_dose_data[d3mini2]]],
+        #     [rebinned_pos_data[d3maxi3], [d3max3, rebinned_dose_data[d3maxi3]]],
+        #     [rebinned_pos_data[d3mini3], [d3min3, rebinned_dose_data[d3mini3]]],
+
+        #     # additional points
+        #     dose_offset_point_data,
+        # ]
 
         # ..:: plotting ::..
 
