@@ -85,27 +85,27 @@ class Scan:
         self.dose_at_zero = dose_data[dose_at_zero_index]
 
         # rebinning
+        # TODO: rebin AFTER fit
         rebinned_pos_data = []
         rebinned_dose_data = []
         self.init_bin = abs(pos_data[0] - pos_data[1])
-        # insert between every value and the next (if it exists) init_bin/wanted_bin number of interpolated points
+        # insert between every value and the next (if it exists) init_bin/target_bin number of interpolated points
         for i in range(len(pos_data)):
             inext = i + 1
             if inext == len(pos_data):
-                break  # if there is no next point, stop before adding an excessive point
+                break  # if there is no next point, don't interpolate
             # start interpolation
             t = 0.0
             while t < 1.0:
                 rebinned_pos_data.append(utils.lerp(pos_data[i], pos_data[inext], t))
-                rebinned_dose_data.append(
-                    utils.lerp(dose_data[i], dose_data[inext], t))
+                rebinned_dose_data.append(utils.lerp(dose_data[i], dose_data[inext], t))
                 # increment by right amount
                 t += (self.wanted_bin / self.init_bin)
         self.target_bin = abs(rebinned_pos_data[0] - rebinned_pos_data[1])
 
         # ..:: fit ::..
         # peak position is gaussian center, and peak value is f(center)
-        # with f beign gauss function with proper arguments for left and right fits
+        # with f beign gauss or skew function with proper arguments for left and right fits
         first_derivative = utils.calc_derivative(pos_data, dose_data)
         self.orig_first_derivative = first_derivative[:]
 
@@ -126,15 +126,9 @@ class Scan:
             self.d1_left_fit_args = np.array([1, 1, 1, 1, 1])
             self.d1_right_fit_args = np.array([1, 1, 1, 1, 1])
 
-        # half-bin correction (0.25mm)
-        self.d1_left_fit_args[1] += (self.target_bin / 2.0)
-        self.d1_right_fit_args[1] += (self.target_bin / 2.0)
-
-        # print(f"""{
-        #          [list(map(round,initial_parameters[0],[5,5,5])), list(map(round,initial_parameters[1],[5,5,5]))]
-        #       }\t{
-        #          [list(map(round,self.d1_left_fit_args.tolist(),[5,5,5])), list(map(round,self.d1_right_fit_args.tolist(),[5,5,5]))]
-        #       }""".expandtabs(8))
+        # half-bin correction
+        self.d1_left_fit_args[1] += (self.init_bin / 2.0)
+        self.d1_right_fit_args[1] += (self.init_bin / 2.0)
 
         # discretizing derivatives
         first_derivative = [utils.skew_normal(x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
@@ -235,27 +229,17 @@ class Scan:
         fig, ax = plt.subplots(2, 1)
 
         ax[0].plot(pos_data, dose_data, c="blue", linewidth=line_width)
-        ax[0].scatter(scatter_points_x, scatter_points_y1,
-                      c="black", s=marker_size, zorder=9)
-        ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0]
-                      [1][1], marker="+", c="cyan", zorder=10)
-        ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1]
-                      [1][1], marker="+", c="cyan", zorder=10)
+        ax[0].scatter(scatter_points_x, scatter_points_y1,c="black", s=marker_size, zorder=9)
+        ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker="+", c="cyan", zorder=10)
+        ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker="+", c="cyan", zorder=10)
 
-        ax[1].plot(pos_data, self.orig_first_derivative,
-                   c="blue", linewidth=line_width)
-        ax[1].plot(rebinned_pos_data, first_derivative,
-                   c="red", linewidth=line_width)
-        ax[1].plot(rebinned_pos_data, second_derivative,
-                   c="green", linewidth=line_width)
-        ax[1].plot(rebinned_pos_data, third_derivative,
-                   c="purple", linewidth=line_width)
-        ax[1].scatter(scatter_points_x, scatter_points_y2,
-                      c="black", s=marker_size, zorder=9)
-        ax[1].scatter(self.inflection_points[0][0], self.inflection_points[0]
-                      [1][0], marker="+", c="cyan", zorder=10)
-        ax[1].scatter(self.inflection_points[1][0], self.inflection_points[1]
-                      [1][0], marker="+", c="cyan", zorder=10)
+        ax[1].plot(pos_data, self.orig_first_derivative, c="blue", linewidth=line_width)
+        ax[1].plot(rebinned_pos_data, first_derivative, c="red", linewidth=line_width)
+        ax[1].plot(rebinned_pos_data, second_derivative, c="green", linewidth=line_width)
+        ax[1].plot(rebinned_pos_data, third_derivative, c="purple", linewidth=line_width)
+        ax[1].scatter(scatter_points_x, scatter_points_y2, c="black", s=marker_size, zorder=9)
+        ax[1].scatter(self.inflection_points[0][0], self.inflection_points[0][1][0], marker="+", c="cyan", zorder=10)
+        ax[1].scatter(self.inflection_points[1][0], self.inflection_points[1][1][0], marker="+", c="cyan", zorder=10)
 
         # save plot in the right profile subdirectory
         plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
