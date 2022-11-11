@@ -137,6 +137,8 @@ class Scan:
         second_derivative = utils.calc_derivative(rebinned_pos_data, first_derivative)
         third_derivative = utils.calc_derivative(rebinned_pos_data, second_derivative)
 
+        print(f"pos: {len(pos_data)},{len(rebinned_pos_data)}\ndose: {len(dose_data)},{len(rebinned_dose_data)}\norig_d1: {len(self.orig_first_derivative)}\nd1: {len(first_derivative)}\nd2: {len(second_derivative)}\nd3: {len(third_derivative)}")
+
         # second_derivative = [utils.gauss_first_derivative( x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
         # second_derivative.extend([utils.gauss_first_derivative( x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
         # third_derivative = [utils.gauss_second_derivative( x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
@@ -229,7 +231,7 @@ class Scan:
         fig, ax = plt.subplots(2, 1)
 
         ax[0].plot(pos_data, dose_data, c="blue", linewidth=line_width)
-        ax[0].scatter(scatter_points_x, scatter_points_y1,c="black", s=marker_size, zorder=9)
+        ax[0].scatter(scatter_points_x, scatter_points_y1, c="black", s=marker_size, zorder=9)
         ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker="+", c="cyan", zorder=10)
         ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker="+", c="cyan", zorder=10)
 
@@ -300,8 +302,7 @@ class Profile:
                 else:
                     end_region_index = raw_data.index(f"\tEND_SCAN {scan_num}")
 
-                self.scans.append(Scan(scan_num, raw_data, i,
-                                  end_region_index, profile_out_dir, binning))
+                self.scans.append(Scan(scan_num, raw_data, i, end_region_index, profile_out_dir, binning))
 
                 # skip content in between
                 i = end_region_index
@@ -347,7 +348,6 @@ class Cacher:
             # self.profiles.append(Profile(f, self.out_dir, binning))
         for t in threads:
             t.join()
-
         self.output_tables()
 
     def create_table(self, profiles: list, measurement_depths: list):
