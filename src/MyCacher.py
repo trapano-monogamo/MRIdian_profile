@@ -17,9 +17,8 @@ mpl.use('Agg')
 class Scan:
     # scan properties
     scan_num: int
-    fields: dict
-    pos_data: list
-    dose_data: list
+    scan_depth: str
+    field_crossplane: str
     init_bin: float
     target_bin: float
     wanted_bin: float
@@ -28,20 +27,18 @@ class Scan:
     first_derivative: list
     second_derivative: list
     third_derivative: list
-    rebinned_pos_data: list
-    rebinned_dose_data: list
     inflection_points: list
     lt25mm: bool
     dose_at_zero: float
     d1_left_fit_args: list
     d1_right_fit_args: list
+    chi_squared: (float, float)
 
-    # useful data
+    # misc
     profile_out_dir: str
 
     def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir, binning: float):
         self.scan_num = _scan_num
-        self.fields = {}
         self.inflection_points = []
         self.lt25mm = False
         self.d1_left_fit_args: list
@@ -50,6 +47,8 @@ class Scan:
         self.init_bin = 0.0
         self.target_bin = 0.0
         self.wanted_bin = binning
+        self.scan_depth: str
+        self.field_crossplane: str
 
         pos_data = []
         dose_data = []
@@ -57,13 +56,16 @@ class Scan:
         # ..:: parsing ::..
         # loop through the region, as long as "BEGIN_DATA" isn't encountered, keep collecting fields,
         # once it is encountered, collect floats
-        temp_complete_data = []
         i = _begin + 1
         while i != _end:
             # if it's a field, separate field name and value (they're separated with an equal sign), and put them in the fields dict
             if _raw_data[i].find("BEGIN_DATA") == -1:
                 tokens = _raw_data[i].replace("\t", "").split("=")
-                self.fields[tokens[0]] = tokens[1]
+                ### self.fields[tokens[0]] = tokens[1]
+                if tokens[0] == 'SCAN_DEPTH':
+                    self.scan_depth = tokens[1]
+                if tokens[0] == 'FIELD_CROSSPLANE':
+                    self.field_crossplane = tokens[1]
             # otherwise collect the numbers in the current line as pairs and put them in the data list
             else:
                 j = i + 1
@@ -107,7 +109,8 @@ class Scan:
         # peak position is gaussian center, and peak value is f(center)
         # with f beign gauss or skew function with proper arguments for left and right fits
         first_derivative = utils.calc_derivative(pos_data, dose_data)
-        self.orig_first_derivative = first_derivative[:]
+        orig_rebinned_first_derivative = utils.calc_derivative(rebinned_pos_data, rebinned_dose_data)
+        orig_first_derivative = first_derivative[:]
 
         try:
             peak_pos = pos_data[first_derivative.index(max(first_derivative))]
@@ -133,16 +136,10 @@ class Scan:
         # discretizing derivatives
         first_derivative = [utils.skew_normal(x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
         first_derivative.extend([utils.skew_normal(x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
-
         second_derivative = utils.calc_derivative(rebinned_pos_data, first_derivative)
         third_derivative = utils.calc_derivative(rebinned_pos_data, second_derivative)
 
-        print(f"pos: {len(pos_data)},{len(rebinned_pos_data)}\ndose: {len(dose_data)},{len(rebinned_dose_data)}\norig_d1: {len(self.orig_first_derivative)}\nd1: {len(first_derivative)}\nd2: {len(second_derivative)}\nd3: {len(third_derivative)}")
-
-        # second_derivative = [utils.gauss_first_derivative( x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
-        # second_derivative.extend([utils.gauss_first_derivative( x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
-        # third_derivative = [utils.gauss_second_derivative( x, *self.d1_left_fit_args) for x in rebinned_pos_data[:len(rebinned_pos_data) // 2]]
-        # third_derivative.extend([utils.gauss_second_derivative( x, *self.d1_right_fit_args) for x in rebinned_pos_data[len(rebinned_pos_data) // 2:]])
+        print(f"pos: {len(pos_data)},{len(rebinned_pos_data)}\ndose: {len(dose_data)},{len(rebinned_dose_data)}\norig_d1: {len(orig_first_derivative)}\nd1: {len(first_derivative)}\nd2: {len(second_derivative)}\nd3: {len(third_derivative)}")
 
         # ..:: inflection points ::..
 
@@ -155,6 +152,11 @@ class Scan:
         d3max2, d3maxi2, d3min2, d3mini2 = utils.max_and_min_in_range(third_derivative, d2mini1, d2mini2)
         d3max3, d3maxi3, d3min3, d3mini3 = utils.max_and_min_in_range(third_derivative, d2mini2, None)
 
+        self.chi_squared = (
+            utils.windowed_chi_squared(orig_rebinned_first_derivative, first_derivative, d3maxi1, d3maxi2),
+            utils.windowed_chi_squared(orig_rebinned_first_derivative, first_derivative, d3mini2, d3mini3),
+        )
+
         # additional point: dose(pos(d1max) - 25) exists ? eq25mm : lt25mm
         dose_offset_point_data = [0, [0, 0]]
         position_offset = 25.0
@@ -166,6 +168,7 @@ class Scan:
                 rebinned_pos_data[0], [0, rebinned_dose_data[0]]]
             self.lt25mm = True
 
+        # OH GOD... WHAT IS THIS... and it's not even the worst I put in these files
         # save inflection points data: [pos, [derivative_value, data_value]]
         self.inflection_points = [
             # d1
@@ -190,29 +193,6 @@ class Scan:
             dose_offset_point_data,
         ]
 
-        # self.inflection_points = [
-        #     # d1
-        #     [rebinned_pos_data[d1maxi1], [d1max1, rebinned_dose_data[d1maxi1]]],
-        #     [rebinned_pos_data[d1mini1], [d1min1, rebinned_dose_data[d1mini1]]],
-
-        #     # d2
-        #     [rebinned_pos_data[d2maxi1], [d2max1, rebinned_dose_data[d2maxi1]]],
-        #     [rebinned_pos_data[d2mini1], [d2min1, rebinned_dose_data[d2mini1]]],
-        #     [rebinned_pos_data[d2mini2], [d2min2, rebinned_dose_data[d2mini2]]],
-        #     [rebinned_pos_data[d2maxi2], [d2max2, rebinned_dose_data[d2maxi2]]],
-
-        #     # d3
-        #     [rebinned_pos_data[d3maxi1], [d3max1, rebinned_dose_data[d3maxi1]]],
-        #     [rebinned_pos_data[d3mini1], [d3min1, rebinned_dose_data[d3mini1]]],
-        #     [rebinned_pos_data[d3maxi2], [d3max2, rebinned_dose_data[d3maxi2]]],
-        #     [rebinned_pos_data[d3mini2], [d3min2, rebinned_dose_data[d3mini2]]],
-        #     [rebinned_pos_data[d3maxi3], [d3max3, rebinned_dose_data[d3maxi3]]],
-        #     [rebinned_pos_data[d3mini3], [d3min3, rebinned_dose_data[d3mini3]]],
-
-        #     # additional points
-        #     dose_offset_point_data,
-        # ]
-
         # ..:: plotting ::..
 
         # params
@@ -235,7 +215,7 @@ class Scan:
         ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker="+", c="cyan", zorder=10)
         ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker="+", c="cyan", zorder=10)
 
-        ax[1].plot(pos_data, self.orig_first_derivative, c="blue", linewidth=line_width)
+        ax[1].plot(pos_data, orig_first_derivative, c="blue", linewidth=line_width)
         ax[1].plot(rebinned_pos_data, first_derivative, c="red", linewidth=line_width)
         ax[1].plot(rebinned_pos_data, second_derivative, c="green", linewidth=line_width)
         ax[1].plot(rebinned_pos_data, third_derivative, c="purple", linewidth=line_width)
@@ -244,8 +224,17 @@ class Scan:
         ax[1].scatter(self.inflection_points[1][0], self.inflection_points[1][1][0], marker="+", c="cyan", zorder=10)
 
         # save plot in the right profile subdirectory
-        plt.savefig(f"{self.profile_out_dir}/{self.fields['SCAN_DEPTH']}.png")
+        plt.savefig(f"{self.profile_out_dir}/{self.scan_depth}.png")
         plt.close(fig)
+
+        orig_first_derivative.clear()
+        pos_data.clear()
+        dose_data.clear()
+        rebinned_pos_data.clear()
+        rebinned_dose_data.clear()
+        scatter_points_x.clear()
+        scatter_points_y1.clear()
+        scatter_points_y2.clear()
 
     def apply_filter(self, data, filter_name, arg):
         if filter_name == "moving_average":
@@ -297,8 +286,7 @@ class Profile:
 
                 # OMG!!! what are we, babies?! c'mon...
                 if scan_num < 10:
-                    end_region_index = raw_data.index(
-                        f"\tEND_SCAN  {scan_num}")
+                    end_region_index = raw_data.index(f"\tEND_SCAN  {scan_num}")
                 else:
                     end_region_index = raw_data.index(f"\tEND_SCAN {scan_num}")
 
@@ -307,6 +295,8 @@ class Profile:
                 # skip content in between
                 i = end_region_index
             i += 1
+
+        raw_data.clear()
 
         shared_profiles.append(self)
         print(f"finishing: {self.name}")
@@ -332,16 +322,14 @@ class Cacher:
         filelist = []
         for root, dirs, files in os.walk(_res_dir):
             for _file in files:
-                current_file_path = os.path.join(
-                    root, _file).replace("\\", "/")
+                current_file_path = os.path.join(root, _file).replace("\\", "/")
                 filelist.append(current_file_path)
             break
 
         # create profile out of each file in filelist
         threads = []
         for f in filelist:
-            t = threading.Thread(target=Profile, args=(
-                f, self.out_dir, binning, self.profiles, ))
+            t = threading.Thread(target=Profile, args=(f, self.out_dir, binning, self.profiles))
             print(f"starting: {f.split('/')[-1][:-4]}")
             t.start()
             threads.append(t)
@@ -359,8 +347,7 @@ class Cacher:
             # prepare the table's row
             # field size
             # temp_table_row = [profiles[p].name.split(" ")[3]]
-            field_size = int(
-                round(float(profiles[p].scans[0].fields["FIELD_CROSSPLANE"]) / 100.0, 1) * 10.0)
+            field_size = int(round(float(profiles[p].scans[0].field_crossplane) / 100.0, 1) * 10.0)
             temp_table_row = [f"{field_size}X{field_size}"]
             # for each profile's scan
             for s in range(len(measurement_depths)):
@@ -368,7 +355,7 @@ class Cacher:
                 temp_profile_scans = profiles[p].scans
 
                 # if this is the right measurement
-                if float(temp_profile_scans[s].fields["SCAN_DEPTH"]) == measurement_depths[s]:
+                if float(temp_profile_scans[s].scan_depth) == measurement_depths[s]:
 
                     # fill the cell with dose_at_zero + inflection points data
                     # column_content = [round(dose_at_zero, 3)]
@@ -417,9 +404,9 @@ class Cacher:
                         round(temp_profile_scans[s].inflection_points[11][1][1], data_precision),
                         # additional points
                         round(temp_profile_scans[s].inflection_points[-1][1][1] / 10.0, data_precision),
-                        "lt25" if temp_profile_scans[s].lt25mm else "eq25",
-                            *[round(n, data_precision) for n in temp_profile_scans[s].d1_left_fit_args.tolist()
-                                + temp_profile_scans[s].d1_right_fit_args.tolist()],
+                        "lt25" if temp_profile_scans[s].lt25mm else "eq25", *[round(n, data_precision) for n in temp_profile_scans[s].d1_left_fit_args.tolist() + temp_profile_scans[s].d1_right_fit_args.tolist()],
+                        round(temp_profile_scans[s].chi_squared[0], data_precision),
+                        round(temp_profile_scans[s].chi_squared[1], data_precision),
                     ])
 
                     # append the cell to the row
@@ -449,9 +436,8 @@ class Cacher:
             measurement_depths = []
             for p in v:
                 for s in p.scans:
-                    if not float(s.fields["SCAN_DEPTH"]) in measurement_depths:
-                        measurement_depths.append(
-                            float(s.fields["SCAN_DEPTH"]))
+                    if not float(s.scan_depth) in measurement_depths:
+                        measurement_depths.append(float(s.scan_depth))
             measurement_depths.sort()
 
             table = self.create_table(v, measurement_depths)
@@ -459,13 +445,11 @@ class Cacher:
             # writing produced table to output file
             tabextension = 12
             with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
-                f.write("FS\td_cm\tini_bin\tbin\tD(0)\tp1d1sx\tD(p1d1sx)\tp1d1dx\tD(p1d1dx)\tp1d2sx\tp2d2sx\tD(p1d2sx)\tD(p2d2sx)\tp1d2dx\tp2d2dx\tD(p1d2dx)\tD(p2d2dx)\tp1d3sx\tp2d3sx\tp3d3sx\tD(p1d3sx)\tD(p2d3sx)\tD(p3d3sx)\tp1d3dx\tp2d3dx\tp3d3dx\tD(p1d3dx)\tD(p2d3dx)\tD(p3d3dx)\tD(IP-25)\toff25\tparams\n".expandtabs(tabextension))
+                f.write("FS\td_cm\tini_bin\tbin\tD(0)\tp1d1sx\tD(p1d1sx)\tp1d1dx\tD(p1d1dx)\tp1d2sx\tp2d2sx\tD(p1d2sx)\tD(p2d2sx)\tp1d2dx\tp2d2dx\tD(p1d2dx)\tD(p2d2dx)\tp1d3sx\tp2d3sx\tp3d3sx\tD(p1d3sx)\tD(p2d3sx)\tD(p3d3sx)\tp1d3dx\tp2d3dx\tp3d3dx\tD(p1d3dx)\tD(p2d3dx)\tD(p3d3dx)\tD(IP-25)\toff25\tchissx\tchisdx\tparams\n".expandtabs(tabextension))
                 for row in range(1, len(table)):
                     for cell in range(1, len(table[row])):
-                        cell_data = '\t'.join([str(x)
-                                              for x in table[row][cell]])
-                        f.write(
-                            f"{table[row][0]}\t{table[0][cell]}\t{cell_data}\n".expandtabs(tabextension))
+                        cell_data = '\t'.join([str(x) for x in table[row][cell]])
+                        f.write(f"{table[row][0]}\t{table[0][cell]}\t{cell_data}\n".expandtabs(tabextension))
 
             # table = transpose_table(table)
             # with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:

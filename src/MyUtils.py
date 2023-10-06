@@ -13,6 +13,20 @@ def extract_column(data: list, n):
     return ext_data
 
 
+def chi_squared(observed: list, expected: list) -> float:
+    acc = 0
+    for k in range(1, len(observed)):
+        acc += (observed[k] - expected[k]) ** 2 / expected[k]
+    return acc
+
+
+def windowed_chi_squared(observed: list, expected: list, a: int, b: int) -> float:
+    acc = 0
+    for k in range(a, b):
+        acc += (observed[k] - expected[k]) ** 2 / expected[k]
+    return acc
+
+
 # returns the mobile mean curve of the dataset given
 def moving_average(data: list, N: int):
     offset = math.floor(N / 2)

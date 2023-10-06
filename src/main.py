@@ -3,11 +3,11 @@ import multiprocessing
 import time
 
 def main():
-    data_package = "Y_Fields"
+    data_package = "MR_LINAC"
 
     start_time = time.time()
 
-    p1 = multiprocessing.Process(target=Cacher, args=(f"./res/{data_package}/", f"./out/{data_package}/results/", 0.1))
+    p1 = multiprocessing.Process(target=Cacher, args=(f"./res/{data_package}/", f"./out/{data_package}/chi/", 0.1))
     p1.start()
 
     p1.join()
