@@ -193,48 +193,48 @@ class Scan:
             dose_offset_point_data,
         ]
 
-        # ..:: plotting ::..
+        # # ..:: plotting ::..
 
-        # params
-        marker_size = 5
-        line_width = 0.8
+        # # params
+        # marker_size = 5
+        # line_width = 0.8
 
-        # grouping inflection points for first and second scatter plots
-        scatter_points_x = []
-        scatter_points_y1 = []
-        scatter_points_y2 = []
-        for i in range(len(self.inflection_points)):
-            scatter_points_x.append(self.inflection_points[i][0])
-            scatter_points_y1.append(self.inflection_points[i][1][1])
-            scatter_points_y2.append(self.inflection_points[i][1][0])
+        # # grouping inflection points for first and second scatter plots
+        # scatter_points_x = []
+        # scatter_points_y1 = []
+        # scatter_points_y2 = []
+        # for i in range(len(self.inflection_points)):
+        #     scatter_points_x.append(self.inflection_points[i][0])
+        #     scatter_points_y1.append(self.inflection_points[i][1][1])
+        #     scatter_points_y2.append(self.inflection_points[i][1][0])
 
-        fig, ax = plt.subplots(2, 1)
+        # fig, ax = plt.subplots(2, 1)
 
-        ax[0].plot(pos_data, dose_data, c="blue", linewidth=line_width)
-        ax[0].scatter(scatter_points_x, scatter_points_y1, c="black", s=marker_size, zorder=9)
-        ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker="+", c="cyan", zorder=10)
-        ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker="+", c="cyan", zorder=10)
+        # ax[0].plot(pos_data, dose_data, c="blue", linewidth=line_width)
+        # ax[0].scatter(scatter_points_x, scatter_points_y1, c="black", s=marker_size, zorder=9)
+        # ax[0].scatter(self.inflection_points[0][0], self.inflection_points[0][1][1], marker="+", c="cyan", zorder=10)
+        # ax[0].scatter(self.inflection_points[1][0], self.inflection_points[1][1][1], marker="+", c="cyan", zorder=10)
 
-        ax[1].plot(pos_data, orig_first_derivative, c="blue", linewidth=line_width)
-        ax[1].plot(rebinned_pos_data, first_derivative, c="red", linewidth=line_width)
-        ax[1].plot(rebinned_pos_data, second_derivative, c="green", linewidth=line_width)
-        ax[1].plot(rebinned_pos_data, third_derivative, c="purple", linewidth=line_width)
-        ax[1].scatter(scatter_points_x, scatter_points_y2, c="black", s=marker_size, zorder=9)
-        ax[1].scatter(self.inflection_points[0][0], self.inflection_points[0][1][0], marker="+", c="cyan", zorder=10)
-        ax[1].scatter(self.inflection_points[1][0], self.inflection_points[1][1][0], marker="+", c="cyan", zorder=10)
+        # ax[1].plot(pos_data, orig_first_derivative, c="blue", linewidth=line_width)
+        # ax[1].plot(rebinned_pos_data, first_derivative, c="red", linewidth=line_width)
+        # ax[1].plot(rebinned_pos_data, second_derivative, c="green", linewidth=line_width)
+        # ax[1].plot(rebinned_pos_data, third_derivative, c="purple", linewidth=line_width)
+        # ax[1].scatter(scatter_points_x, scatter_points_y2, c="black", s=marker_size, zorder=9)
+        # ax[1].scatter(self.inflection_points[0][0], self.inflection_points[0][1][0], marker="+", c="cyan", zorder=10)
+        # ax[1].scatter(self.inflection_points[1][0], self.inflection_points[1][1][0], marker="+", c="cyan", zorder=10)
 
-        # save plot in the right profile subdirectory
-        plt.savefig(f"{self.profile_out_dir}/{self.scan_depth}.png")
-        plt.close(fig)
+        # # save plot in the right profile subdirectory
+        # plt.savefig(f"{self.profile_out_dir}/{self.scan_depth}.png")
+        # plt.close(fig)
 
-        orig_first_derivative.clear()
-        pos_data.clear()
-        dose_data.clear()
-        rebinned_pos_data.clear()
-        rebinned_dose_data.clear()
-        scatter_points_x.clear()
-        scatter_points_y1.clear()
-        scatter_points_y2.clear()
+        # orig_first_derivative.clear()
+        # pos_data.clear()
+        # dose_data.clear()
+        # rebinned_pos_data.clear()
+        # rebinned_dose_data.clear()
+        # scatter_points_x.clear()
+        # scatter_points_y1.clear()
+        # scatter_points_y2.clear()
 
     def apply_filter(self, data, filter_name, arg):
         if filter_name == "moving_average":

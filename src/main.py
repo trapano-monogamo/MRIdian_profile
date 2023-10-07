@@ -7,7 +7,7 @@ def main():
 
     start_time = time.time()
 
-    p1 = multiprocessing.Process(target=Cacher, args=(f"./res/{data_package}/", f"./out/{data_package}/chi/", 0.1))
+    p1 = multiprocessing.Process(target=Cacher, args=(f"./res/{data_package}/", f"./out/{data_package}/chi tabs/", 0.001))
     p1.start()
 
     p1.join()
