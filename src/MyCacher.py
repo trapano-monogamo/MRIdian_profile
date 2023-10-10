@@ -122,8 +122,8 @@ class Scan:
             ]
             # self.d1_left_fit_args, left_pcov = curve_fit(utils.gauss, pos_data[:len( pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
             # self.d1_right_fit_args, right_pcov = curve_fit(utils.gauss, pos_data[len( pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
-            self.d1_left_fit_args, left_pcov = curve_fit(utils.skew_normal_fit, pos_data[:len(pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
-            self.d1_right_fit_args, right_pcov = curve_fit(utils.skew_normal_fit, pos_data[len(pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
+            self.d1_left_fit_args, left_pcov = curve_fit(utils.gauss, pos_data[:len(pos_data) // 2], first_derivative[:len(first_derivative) // 2], initial_parameters[0])
+            self.d1_right_fit_args, right_pcov = curve_fit(utils.gauss, pos_data[len(pos_data) // 2:], first_derivative[len(first_derivative) // 2:], initial_parameters[1])
         except Exception as e:
             print(f"[error]: {e}")
             self.d1_left_fit_args = np.array([1, 1, 1, 1, 1])
@@ -404,9 +404,10 @@ class Cacher:
                         round(temp_profile_scans[s].inflection_points[11][1][1], data_precision),
                         # additional points
                         round(temp_profile_scans[s].inflection_points[-1][1][1] / 10.0, data_precision),
-                        "lt25" if temp_profile_scans[s].lt25mm else "eq25", *[round(n, data_precision) for n in temp_profile_scans[s].d1_left_fit_args.tolist() + temp_profile_scans[s].d1_right_fit_args.tolist()],
+                        "lt25" if temp_profile_scans[s].lt25mm else "eq25",
                         round(temp_profile_scans[s].chi_squared[0], data_precision),
                         round(temp_profile_scans[s].chi_squared[1], data_precision),
+                        *[round(n, data_precision) for n in temp_profile_scans[s].d1_left_fit_args.tolist() + temp_profile_scans[s].d1_right_fit_args.tolist()],
                     ])
 
                     # append the cell to the row
@@ -443,7 +444,7 @@ class Cacher:
             table = self.create_table(v, measurement_depths)
 
             # writing produced table to output file
-            tabextension = 12
+            tabextension = 15
             with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
                 f.write("FS\td_cm\tini_bin\tbin\tD(0)\tp1d1sx\tD(p1d1sx)\tp1d1dx\tD(p1d1dx)\tp1d2sx\tp2d2sx\tD(p1d2sx)\tD(p2d2sx)\tp1d2dx\tp2d2dx\tD(p1d2dx)\tD(p2d2dx)\tp1d3sx\tp2d3sx\tp3d3sx\tD(p1d3sx)\tD(p2d3sx)\tD(p3d3sx)\tp1d3dx\tp2d3dx\tp3d3dx\tD(p1d3dx)\tD(p2d3dx)\tD(p3d3dx)\tD(IP-25)\toff25\tchissx\tchisdx\tparams\n".expandtabs(tabextension))
                 for row in range(1, len(table)):

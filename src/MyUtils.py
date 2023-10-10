@@ -23,7 +23,7 @@ def chi_squared(observed: list, expected: list) -> float:
 def windowed_chi_squared(observed: list, expected: list, a: int, b: int) -> float:
     acc = 0
     for k in range(a, b):
-        acc += (observed[k] - expected[k]) ** 2 / expected[k]
+        acc += (observed[k] - expected[k]) ** 2 / abs(expected[k])
     return acc
 
 
