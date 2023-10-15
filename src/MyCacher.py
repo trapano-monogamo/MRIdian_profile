@@ -2,11 +2,9 @@
 
 import os
 import time
-import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from lmfit.models import GaussianModel
 from MyUtils import *
 
 
@@ -33,6 +31,7 @@ class Scan:
    dose_at_zero: float
    d1_left_fit_args: list
    d1_right_fit_args: list
+   chi2: (float, float)
 
    # useful data
    profile_out_dir: str
@@ -48,6 +47,7 @@ class Scan:
       self.init_bin = 0.0
       self.fin_bin = 0.0
       self.wanted_bin = binning
+      self.chi2 = (0.0, 0.0)
 
       pos_data = []
       dose_data = []
@@ -80,9 +80,13 @@ class Scan:
       dose_at_zero_index = pos_data.index(0.0)
       self.dose_at_zero = dose_data[dose_at_zero_index]
 
+      first_derivative = calc_derivative(pos_data, dose_data)
+      self.orig_first_derivative = first_derivative[:]
+
       # rebinning
       rebinned_pos_data = []
       rebinned_dose_data = []
+      rebinned_first_derivative = []
       self.init_bin = abs(pos_data[0] - pos_data[1])
       # insert between every value and the next (if it exists) init_bin/wanted_bin number of interpolated points
       for i in range(len(pos_data)):
@@ -93,6 +97,7 @@ class Scan:
          while t < 1.0:
             rebinned_pos_data.append(lerp(pos_data[i], pos_data[inext], t))
             rebinned_dose_data.append(lerp(dose_data[i], dose_data[inext], t))
+            rebinned_first_derivative.append(lerp(first_derivative[i], first_derivative[inext], t))
             # increment by right amount
             t += (self.wanted_bin / self.init_bin)
       self.fin_bin = abs(rebinned_pos_data[0] - rebinned_pos_data[1])
@@ -100,8 +105,6 @@ class Scan:
       # ..:: fit ::..
       # peak position is gaussian center, and peak value is f(center)
       # with f beign gauss function with proper arguments for left and right fits
-      first_derivative = calc_derivative(pos_data, dose_data)
-      self.orig_first_derivative = first_derivative[:]
 
       try:
          peak_pos = pos_data[first_derivative.index(max(first_derivative))]
@@ -143,6 +146,11 @@ class Scan:
       d3max1, d3maxi1, d3min1, d3mini1 = max_and_min_in_range(third_derivative, None, d2mini1)
       d3max2, d3maxi2, d3min2, d3mini2 = max_and_min_in_range(third_derivative, d2mini1, d2mini2)
       d3max3, d3maxi3, d3min3, d3mini3 = max_and_min_in_range(third_derivative, d2mini2, None)
+
+      self.chi2 = (
+         windowed_chi_squared(rebinned_first_derivative, first_derivative, d3maxi1, d3maxi2),
+         windowed_chi_squared(rebinned_first_derivative, first_derivative, d3mini2, d3mini3),
+      )
 
       # additional point: dose(pos(d1max) - 25) exists ? eq25mm : lt25mm
       dose_offset_point_data = [0, [0,0]]
@@ -387,8 +395,9 @@ class Cacher:
                   # additional points
                   round(temp_profile_scans[s].inflection_points[-1][1][1] / 10.0, data_precision),
                   "lt25" if temp_profile_scans[s].lt25mm else "eq25",
-                  *[round(n, data_precision) for n in temp_profile_scans[s].d1_left_fit_args.tolist()
-                     + temp_profile_scans[s].d1_right_fit_args.tolist()],
+                  round(temp_profile_scans[s].chi2[0], data_precision),
+                  round(temp_profile_scans[s].chi2[1], data_precision),
+                  *[round(n, data_precision) for n in temp_profile_scans[s].d1_left_fit_args.tolist() + temp_profile_scans[s].d1_right_fit_args.tolist()],
                ])
 
                # append the cell to the row
@@ -427,7 +436,7 @@ class Cacher:
          # writing produced table to output file
          tabextension = 12
          with open(f"{self.out_dir}/{v[0].name.split(' ')[-1]}.txt", "w") as f:
-            f.write("FS\td_cm\tini_bin\tbin\tD(0)\tp1d1sx\tD(p1d1sx)\tp1d1dx\tD(p1d1dx)\tp1d2sx\tp2d2sx\tD(p1d2sx)\tD(p2d2sx)\tp1d2dx\tp2d2dx\tD(p1d2dx)\tD(p2d2dx)\tp1d3sx\tp2d3sx\tp3d3sx\tD(p1d3sx)\tD(p2d3sx)\tD(p3d3sx)\tp1d3dx\tp2d3dx\tp3d3dx\tD(p1d3dx)\tD(p2d3dx)\tD(p3d3dx)\tD(IP-25)\toff25\tparams\n".expandtabs(tabextension))
+            f.write("FS\td_cm\tini_bin\tbin\tD(0)\tp1d1sx\tD(p1d1sx)\tp1d1dx\tD(p1d1dx)\tp1d2sx\tp2d2sx\tD(p1d2sx)\tD(p2d2sx)\tp1d2dx\tp2d2dx\tD(p1d2dx)\tD(p2d2dx)\tp1d3sx\tp2d3sx\tp3d3sx\tD(p1d3sx)\tD(p2d3sx)\tD(p3d3sx)\tp1d3dx\tp2d3dx\tp3d3dx\tD(p1d3dx)\tD(p2d3dx)\tD(p3d3dx)\tD(IP-25)\toff25\tchi2sx\tchi2dx\tparams\n".expandtabs(tabextension))
             for row in range(1, len(table)):
                for cell in range(1, len(table[row])):
                   cell_data = '\t'.join([str(x) for x in table[row][cell]])

@@ -1,62 +1,79 @@
 from scipy.signal import find_peaks, medfilt
 from scipy.interpolate import splrep, splev
 import numpy as np
-import statistics
 import math
 
+
 # from a matrix-like dataset, extracts the nth column
-def extract_column(data:list, n):
+def extract_column(data: list, n):
     ext_data = []
     for i in range(len(data)):
         ext_data.append(data[i][n])
     return ext_data
 
+
+def chi_squared(observed: list, expected: list) -> float:
+    acc = 0
+    for k in range(1, len(observed)):
+        acc += (observed[k] - expected[k]) ** 2 / expected[k]
+    return acc
+
+
+def windowed_chi_squared(observed: list, expected: list, a: int, b: int) -> float:
+    acc = 0
+    for k in range(a, b):
+        acc += (observed[k] - expected[k]) ** 2 / abs(expected[k])
+    return acc
+
+
 # returns the mobile mean curve of the dataset given
-def moving_average(data:list, N:int):
-    offset = math.floor(N/2)
+def moving_average(data: list, N: int):
+    offset = math.floor(N / 2)
     averages = data[0:offset]
     window_average = 0
     i = offset
     while i < len(data) - offset:
         # take into account current point, which is at (i - offset) + 1  =>  therefore last point is i + offset + 1
-        window = data[i - offset : i + offset + 1]
+        window = data[i - offset:i + offset + 1]
         window_average = sum(window) / N
         averages.append(window_average)
 
         # print(f"{i}: {window}, {window_average}")
 
-        if i == offset: # first iteration
+        if i == offset:  # first iteration
             # fill head of dataset with first modified value
-            for n in range(0, offset, 1): # 0 -> offset (1)
+            for n in range(0, offset, 1):  # 0 -> offset (1)
                 averages[n] = window_average
 
-        if i == len(data) - 1 - offset: # last iteration
+        if i == len(data) - 1 - offset:  # last iteration
             # fill tail with last modified value
             averages.extend([window_average for _ in range(offset)])
         i += 1
     return averages
 
+
 # applies median filter to dataset in given ranges (if not given, the gets applied to the whole domain)
 # ranges follow this structure: [[a1,b1], [a2,b2], [a3,b3], ...]
-def median_filter(data:list, N:int, ranges:list=None):
+def median_filter(data: list, N: int, ranges: list = None):
     if ranges is None:
         return medfilt(data, N).tolist()
     else:
         # [!] check if ranges intersect or are not in ascending order
         locally_filtered_data = data[:ranges[0][0]]
         for i in range(len(ranges)):
-            locally_filtered_data.extend( medfilt(data[ranges[i][0]:ranges[i][1]], N).tolist() )
+            locally_filtered_data.extend(medfilt(data[ranges[i][0]:ranges[i][1]], N).tolist())
             if i + 1 < len(ranges):
-                locally_filtered_data.extend( data[ranges[i][1]:ranges[i+1][0]] )
-        locally_filtered_data.extend( data[ranges[-1][1]:] )
+                locally_filtered_data.extend(data[ranges[i][1]:ranges[i + 1][0]])
+        locally_filtered_data.extend(data[ranges[-1][1]:])
         if len(data) != len(locally_filtered_data):
             # print(data)
             # print(locally_filtered_data)
             raise Exception(f"Something went wrong: found lengths {len(data)} and {len(locally_filtered_data)}")
         return locally_filtered_data
 
+
 # calculate the derivative function and returns it for the whole domain
-def calc_derivative(x: list, y:list):
+def calc_derivative(x: list, y: list):
     derivative = []
     for i in range(len(x)):
         inext = i + 1
@@ -70,6 +87,7 @@ def calc_derivative(x: list, y:list):
             )
     derivative.append(derivative[-1])
     return derivative
+
 
 def find_intersections(f: list, g: list):
     if len(f) != len(g):
@@ -89,13 +107,15 @@ def find_intersections(f: list, g: list):
             x += 1
         return intersections
 
+
 # normalizes dataset
-def normalize_data(data:list):
+def normalize_data(data: list):
     dose_max = max(extract_column(data, 1))
     norm_data = []
     for v in data:
-        norm_data.append( (v / dose_max) * 100 )
+        norm_data.append((v / dose_max) * 100)
     return norm_data
+
 
 def transpose_table(table):
     result = []
@@ -106,27 +126,33 @@ def transpose_table(table):
         result.append(row)
     return result
 
+
 def gauss(x, amp, cen, wid):
     return amp * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2))
+
 
 def gauss_first_derivative(x, amp, cen, wid):
     return -amp * (x - cen) * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2.0)) / wid ** 2.0
 
+
 def gauss_second_derivative(x, amp, cen, wid):
     return amp * (x ** 2.0 - 2 * cen * x - wid ** 2.0 + cen ** 2.0) * np.exp(-(x - cen) ** 2.0 / (2 * wid ** 2.0)) / wid ** 4.0
+
 
 def lerp(v0, v1, t):
     # return v0 + t * (v1 - v0)
     return (1 - t) * v0 + t * v1
 
+
 def max_and_min_in_range(_data: list, _begin: int = None, _end: int = None):
     begin = _begin if _begin else 0
     end = _end if _end else len(_data)
-    dmax= max(_data[begin:end])
+    dmax = max(_data[begin:end])
     dmin = min(_data[begin:end])
     dmaxi = _data.index(dmax, begin, end)
     dmini = _data.index(dmin, begin, end)
     return (dmax, dmaxi, dmin, dmini)
+
 
 def continuous_max_and_min_in_range(self, f, params: list, n: int, begin: float = 0.0, end: float = 1.0):
     domain = end - begin
