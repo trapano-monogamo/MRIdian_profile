@@ -37,7 +37,7 @@ class Scan:
     # misc
     profile_out_dir: str
 
-    def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir, binning: float):
+    def __init__(self, _scan_num, _raw_data, _begin, _end, _profile_out_dir, binning: float, try_params: list = None):
         self.scan_num = _scan_num
         self.inflection_points = []
         self.lt25mm = False
@@ -258,7 +258,7 @@ class Profile:
     scans: list
     iso_field_size: str
 
-    def __init__(self, file_path: str, out_dir: str, binning: float, shared_profiles: list):
+    def __init__(self, file_path: str, out_dir: str, binning: float, shared_profiles: list, try_params: list):
         self.name = file_path.split("/")[-1].replace(".mcc", "")
         self.iso_field_size = self.name.split(" ")[3]
         self.scans = []
@@ -278,6 +278,7 @@ class Profile:
 
         # parsing
         i = 0
+        j = 0
         end_region_index = 0
         while i < len(raw_data):
             # when a BEGIN_SCAN is found, highlight its region up to END_SCAN, and build a DataScan out of it
@@ -290,7 +291,8 @@ class Profile:
                 else:
                     end_region_index = raw_data.index(f"\tEND_SCAN {scan_num}")
 
-                self.scans.append(Scan(scan_num, raw_data, i, end_region_index, profile_out_dir, binning))
+                self.scans.append(Scan(scan_num, raw_data, i, end_region_index, profile_out_dir, binning, try_params[j]))
+                j += 1
 
                 # skip content in between
                 i = end_region_index
