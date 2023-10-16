@@ -147,9 +147,10 @@ class Scan:
         d3max3, d3maxi3, d3min3, d3mini3 = utils.max_and_min_in_range(third_derivative, d2mini2, None)
 
         self.chi2 = (
-            utils.windowed_chi_squared(rebinned_first_derivative, first_derivative, d3maxi1, d3maxi2),
-            utils.windowed_chi_squared(rebinned_first_derivative, first_derivative, d3mini2, d3mini3),
+            utils.windowed_reduced_chi_squared(rebinned_first_derivative, first_derivative, d3maxi1, d3maxi2),
+            utils.windowed_reduced_chi_squared(rebinned_first_derivative, first_derivative, d3mini2, d3mini3),
         )
+        exit()
 
         # additional point: dose(pos(d1max) - 25) exists ? eq25mm : lt25mm
         dose_offset_point_data = [0, [0, 0]]

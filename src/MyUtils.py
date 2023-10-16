@@ -1,5 +1,4 @@
-from scipy.signal import find_peaks, medfilt
-from scipy.interpolate import splrep, splev
+from scipy.signal import medfilt
 import numpy as np
 import math
 
@@ -24,6 +23,16 @@ def windowed_chi_squared(observed: list, expected: list, a: int, b: int) -> floa
     for k in range(a, b):
         acc += (observed[k] - expected[k]) ** 2 / abs(expected[k])
     return acc
+
+
+def windowed_reduced_chi_squared(observed: list, expected: list, a: int, b: int) -> float:
+    acc = 0
+    _acc = 0
+    for k in range(a, b):
+        acc += (observed[k] - expected[k]) ** 2 / abs(expected[k])
+        _acc += (observed[k] - expected[k]) ** 2
+    print(f"N = {abs(b-a)}\no-e = {(observed[(a - b) // 3] - expected[(a-b) // 3]) ** 2}\nacc = {acc}\nchi2 = {acc / (abs(b-a) - 1)}\n_acc = {_acc / abs(b-a)}")
+    return acc / (abs(b - a) - 1)
 
 
 # returns the mobile mean curve of the dataset given
