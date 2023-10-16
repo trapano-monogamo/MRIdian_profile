@@ -150,7 +150,6 @@ class Scan:
             utils.windowed_reduced_chi_squared(rebinned_first_derivative, first_derivative, d3maxi1, d3maxi2),
             utils.windowed_reduced_chi_squared(rebinned_first_derivative, first_derivative, d3mini2, d3mini3),
         )
-        exit()
 
         # additional point: dose(pos(d1max) - 25) exists ? eq25mm : lt25mm
         dose_offset_point_data = [0, [0, 0]]

@@ -31,7 +31,7 @@ def windowed_reduced_chi_squared(observed: list, expected: list, a: int, b: int)
     for k in range(a, b):
         acc += (observed[k] - expected[k]) ** 2 / abs(expected[k])
         _acc += (observed[k] - expected[k]) ** 2
-    print(f"N = {abs(b-a)}\no-e = {(observed[(a - b) // 3] - expected[(a-b) // 3]) ** 2}\nacc = {acc}\nchi2 = {acc / (abs(b-a) - 1)}\n_acc = {_acc / abs(b-a)}")
+    # print(f"N = {abs(b-a)}\no-e = {(observed[(a - b) // 3] - expected[(a-b) // 3]) ** 2}\nacc = {acc}\nchi2 = {acc / (abs(b-a) - 1)}\n_acc = {_acc / abs(b-a)}")
     return acc / (abs(b - a) - 1)
 
 
